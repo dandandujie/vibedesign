@@ -15,6 +15,17 @@ import { EditTool } from "../components/EditToolbar";
 import { PresentOverlay } from "../components/PresentOverlay";
 import { SkillsModal } from "../components/SkillsModal";
 import { SkillEntry } from "../lib/skillCatalog";
+import {
+  AppBadge,
+  ChevronDown,
+  PanelLeft,
+  HistoryIcon,
+  RefreshIcon,
+  PencilIcon,
+  CopyIcon,
+  TrashIcon,
+  ChevronRight,
+} from "../components/icons";
 
 type CanvasTool = null | "annotate" | "edit" | "tweaks";
 
@@ -360,7 +371,37 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
   const switchTool = (t: CanvasTool) => {
     setTool((cur) => (cur === t ? null : t));
     setEditTool("select");
+    canvasRef.current?.postCmd({ __vd_cmd: "drawMode", tool: null });
     clearSelection();
+  };
+
+  // Draw tools: forward the active tool to the bridge; shapes land in the DOM.
+  const changeEditTool = (t: EditTool) => {
+    setEditTool(t);
+    const isDraw = t !== "select" && t !== "interact";
+    canvasRef.current?.postCmd({ __vd_cmd: "drawMode", tool: isDraw ? t : null });
+    if (t === "select") canvasRef.current?.postCmd({ __vd_cmd: "enable", value: true });
+    if (t === "interact") canvasRef.current?.postCmd({ __vd_cmd: "enable", value: false });
+  };
+
+  const onDrawn = () => {
+    setDirty(true);
+    void snapshot();
+    // one shape per activation, then back to select (Figma-like)
+    changeEditTool("select");
+  };
+
+  // window.claude.complete from prototypes → non-streaming completion.
+  const onClaudeRequest = (reqId: number, prompt: string) => {
+    let acc = "";
+    streamChat(
+      { messages: [{ role: "user", content: prompt }], providerId: meta?.activeProviderId },
+      {
+        onText: (d) => (acc += d),
+        onError: (msg) => canvasRef.current?.postCmd({ __vd_cmd: "claudeResult", reqId, error: msg }),
+        onDone: () => canvasRef.current?.postCmd({ __vd_cmd: "claudeResult", reqId, text: acc }),
+      },
+    );
   };
 
   // ---- Project ops -----------------------------------------------------------
@@ -402,11 +443,11 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
       <aside className="sidebar">
         {/* Fixed sidebar header (user req #5) — survives Edit/Annotate panels */}
         <div className="side-head">
-          <button className="side-home" title="回到首页" onClick={() => (location.hash = "#/")} />
+          <AppBadge title="回到首页" onClick={() => (location.hash = "#/")} />
           <input className="pname" value={proj.name} onChange={(e) => patch({ name: e.target.value })} spellCheck={false} />
           <div style={{ position: "relative" }}>
             <button className="iconbtn" title="项目操作" onClick={() => setProjMenu((v) => !v)}>
-              ∨
+              <ChevronDown size={14} />
             </button>
             {projMenu && (
               <div className="mini-menu">
@@ -416,21 +457,23 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
                     (document.querySelector(".side-head .pname") as HTMLInputElement)?.focus();
                   }}
                 >
-                  ✎ Rename
+                  <PencilIcon size={14} /> Rename
                 </button>
-                <button onClick={duplicateProject}>⧉ Duplicate</button>
+                <button onClick={duplicateProject}>
+                  <CopyIcon size={14} /> Duplicate
+                </button>
                 <button className="danger" onClick={removeProject}>
-                  🗑 Delete project
+                  <TrashIcon size={14} /> Delete project
                 </button>
               </div>
             )}
           </div>
           <button className="iconbtn" title="隐藏侧边栏" onClick={() => setCollapsed(true)}>
-            ⟨
+            <PanelLeft size={15} />
           </button>
           <div style={{ position: "relative" }}>
             <button className="iconbtn" title="聊天历史" onClick={() => setHistoryOpen((v) => !v)}>
-              🕘
+              <HistoryIcon size={15} />
             </button>
             {historyOpen && (
               <div className="mini-menu wide">
@@ -464,7 +507,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
             tweakGroups={tweakGroups}
             html={canvasHtml ?? ""}
             editTool={editTool}
-            onEditTool={setEditTool}
+            onEditTool={changeEditTool}
             canUndo={undoStack.length > 0}
             canRedo={redoStack.length > 0}
             onUndo={undo}
@@ -479,7 +522,6 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
             onAskTweaks={askTweaks}
             onSave={saveVersion}
             onDiscard={discardEdit}
-            onToast={setToast}
           />
         ) : tool === "annotate" ? (
           <CommentsPanel
@@ -512,7 +554,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
       <div className="canvas-wrap" ref={stageRef}>
         {collapsed && (
           <button className="expand-side iconbtn" title="展开侧边栏" onClick={() => setCollapsed(false)}>
-            ⟩
+            <ChevronRight size={15} />
           </button>
         )}
         {error && (
@@ -529,7 +571,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
 
         <div className="canvas-head">
           <button className="iconbtn" title="重新渲染" onClick={() => setReloadNonce((n) => n + 1)}>
-            ↻
+            <RefreshIcon size={15} />
           </button>
           {artifacts.length > 1 ? (
             <select
@@ -580,7 +622,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
           </button>
           <div style={{ position: "relative" }}>
             <button className="tool-toggle" onClick={() => setPresentMenu((v) => !v)} disabled={!canvasHtml || streaming}>
-              ▶ Present ∨
+              ▶ Present <ChevronDown size={12} />
             </button>
             {presentMenu && (
               <div className="mini-menu" style={{ right: 0 }}>
@@ -634,6 +676,8 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
               streaming={streaming}
               awaitingArtifact={awaitingArtifact}
               onSelected={setSelected}
+              onDrawn={onDrawn}
+              onClaudeRequest={onClaudeRequest}
             />
           )}
           {tool === "annotate" && !selected && canvasHtml && <div className="mode-pill">Click to comment</div>}

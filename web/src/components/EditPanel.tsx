@@ -26,7 +26,6 @@ interface Props {
   onAskTweaks: (description: string) => void;
   onSave: () => void;
   onDiscard: () => void;
-  onToast: (msg: string) => void;
 }
 
 export function EditPanel(props: Props) {
@@ -40,25 +39,28 @@ export function EditPanel(props: Props) {
       onRedo={props.onRedo}
       canUndo={props.canUndo}
       canRedo={props.canRedo}
-      onDrawTool={() => props.onToast("绘图工具将在下个版本提供")}
     />
   );
 
   return (
     <section className="chat edit-panel">
+      {/* Image 13: "Edit … Discard [Save]" row, then plain-text tabs */}
+      <div className="edit-head">
+        <span className="edit-title">Edit</span>
+        <div style={{ flex: 1 }} />
+        <button className="edit-discard" onClick={props.onDiscard}>
+          Discard
+        </button>
+        <button className="btn primary" onClick={props.onSave}>
+          Save
+        </button>
+      </div>
       <div className="edit-tabs">
         {(["simple", "pro", "code", "tweaks"] as Tab[]).map((t) => (
           <button key={t} className={`edit-tab ${tab === t ? "on" : ""}`} onClick={() => setTab(t)}>
             {t[0].toUpperCase() + t.slice(1)}
           </button>
         ))}
-        <div style={{ flex: 1 }} />
-        <button className="btn ghost small" onClick={props.onDiscard}>
-          Discard
-        </button>
-        <button className="btn primary small" onClick={props.onSave}>
-          Save
-        </button>
       </div>
 
       <div className="edit-body">

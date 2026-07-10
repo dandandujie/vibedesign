@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Meta, ProviderConfig, Effort, setActiveProvider, saveProvider } from "../lib/api";
+import { ChevronDown, ChevronRight } from "./icons";
 
 interface Props {
   meta: Meta | null;
@@ -69,7 +70,7 @@ export function ModelPicker({ meta, onMetaChanged, onOpenSettings, align = "up" 
         ) : (
           <span className="mname muted">未配置模型</span>
         )}
-        <span className="chev">∨</span>
+        <span className="chev"><ChevronDown size={12} /></span>
       </button>
 
       {open && (
@@ -104,7 +105,7 @@ export function ModelPicker({ meta, onMetaChanged, onOpenSettings, align = "up" 
               >
                 <span className="ti">Effort</span>
                 <span className="tail">
-                  {active.effort ? EFFORT_LABEL[active.effort] : "—"} <span className="chev">›</span>
+                  {active.effort ? EFFORT_LABEL[active.effort] : "—"} <ChevronRight size={12} />
                 </span>
               </button>
             </>
@@ -117,7 +118,7 @@ export function ModelPicker({ meta, onMetaChanged, onOpenSettings, align = "up" 
             >
               <span className="ti">More models</span>
               <span className="tail">
-                <span className="chev">›</span>
+                <ChevronRight size={12} />
               </span>
             </button>
           )}

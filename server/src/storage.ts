@@ -19,6 +19,7 @@ export interface Project {
   name: string;
   messages: ChatMessage[];
   artifacts: ArtifactVersion[];
+  favorite?: boolean;
   updatedAt: number;
 }
 
@@ -41,10 +42,10 @@ function writeAll(projects: Project[]) {
   writeFileSync(PROJECTS_FILE, JSON.stringify(projects, null, 2));
 }
 
-export function listProjects(): { id: string; name: string; updatedAt: number }[] {
+export function listProjects(): { id: string; name: string; updatedAt: number; favorite?: boolean }[] {
   return readAll()
-    .map((p) => ({ id: p.id, name: p.name, updatedAt: p.updatedAt }))
-    .sort((a, b) => b.updatedAt - a.updatedAt);
+    .map((p) => ({ id: p.id, name: p.name, updatedAt: p.updatedAt, favorite: p.favorite }))
+    .sort((a, b) => Number(b.favorite ?? false) - Number(a.favorite ?? false) || b.updatedAt - a.updatedAt);
 }
 
 export function getProject(id: string): Project | undefined {

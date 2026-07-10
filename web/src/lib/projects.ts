@@ -18,6 +18,7 @@ export interface Project {
   activeVersionId?: string | null;
   comments?: CommentPin[];
   designSystemId?: string | null;
+  favorite?: boolean;
   updatedAt: number;
 }
 
@@ -25,6 +26,7 @@ export interface ProjectListItem {
   id: string;
   name: string;
   updatedAt: number;
+  favorite?: boolean;
 }
 
 export async function listProjects(): Promise<ProjectListItem[]> {

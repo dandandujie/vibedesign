@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ChevronDown, ChevronRight } from "./icons";
 
 interface Props {
   content: string;
@@ -34,7 +35,7 @@ export function AgentSteps({ content, streaming }: Props) {
           <button className="steps-group" onClick={() => setOpen((v) => !v)}>
             <span className="spark">✦</span>
             {done.join(", ")}
-            <span className="chev">{open ? "∧" : "∨"}</span>
+            <span className="chev">{open ? <ChevronDown size={12} style={{ transform: "rotate(180deg)" }} /> : <ChevronDown size={12} />}</span>
           </button>
           {open && (
             <div className="steps-detail">

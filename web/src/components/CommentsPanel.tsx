@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { CommentPin } from "../lib/projects";
+import { XIcon } from "./icons";
 
 interface Props {
   comments: CommentPin[];

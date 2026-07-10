@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { SelectedInfo } from "../lib/types";
 import { filesToDataUrls } from "./ChatPanel";
+import { XIcon } from "./icons";
 
 interface Props {
   selected: SelectedInfo;
@@ -43,7 +44,7 @@ export function CommentPopover({ selected, frameOffset, pinNumber, onAddComment,
         <div className="head">
           <span>Annotate</span>
           <button className="iconbtn" onClick={onCancel} style={{ padding: "0 2px" }}>
-            ✕
+            <XIcon size={13} />
           </button>
         </div>
         {images.length > 0 && (
@@ -51,7 +52,7 @@ export function CommentPopover({ selected, frameOffset, pinNumber, onAddComment,
             {images.map((img, i) => (
               <span key={i} className="attach-chip">
                 <img src={img} alt="" />
-                <button onClick={() => setImages((p) => p.filter((_, j) => j !== i))}>✕</button>
+                <button onClick={() => setImages((p) => p.filter((_, j) => j !== i))}><XIcon size={12} /></button>
               </span>
             ))}
           </div>

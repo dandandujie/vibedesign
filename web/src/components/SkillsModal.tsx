@@ -1,4 +1,5 @@
 import { SKILL_GROUPS, SkillEntry } from "../lib/skillCatalog";
+import { XIcon } from "./icons";
 
 interface Props {
   onPick: (entry: SkillEntry) => void;
@@ -19,7 +20,7 @@ export function SkillsModal({ onPick, onClose }: Props) {
             </p>
           </div>
           <button className="iconbtn" onClick={onClose}>
-            ✕
+            <XIcon size={13} />
           </button>
         </header>
         <div className="content" style={{ gap: 18 }}>

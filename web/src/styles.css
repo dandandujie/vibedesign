@@ -185,7 +185,7 @@ select:focus-visible {
   border: 1px solid var(--border-card);
   border-radius: var(--r-md);
   padding: 8px 10px;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
@@ -194,7 +194,7 @@ select:focus-visible {
 /* assistant: serif prose, no bubble */
 .msg.assistant .bubble {
   font-family: var(--font-serif);
-  font-size: 15px;
+  font-size: 13.5px;
   line-height: 1.55;
   color: var(--text-prose);
   white-space: pre-wrap;
@@ -1074,30 +1074,46 @@ code,
 
 /* ---- Edit panel (field study §8) -------------------------------------------- */
 
+.edit-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 6px;
+}
+.edit-title {
+  font-size: 16px;
+  font-weight: 650;
+  color: var(--text-primary);
+}
+.edit-discard {
+  border: none;
+  background: none;
+  font-size: 14px;
+  color: var(--text-secondary);
+  padding: 5px 8px;
+  border-radius: 7px;
+}
+.edit-discard:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
 .edit-tabs {
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 0 6px;
+  gap: 15px;
+  padding: 4px 14px 8px;
   border-bottom: 1px solid var(--border-subtle);
-  flex-wrap: wrap;
-}
-.edit-tabs .btn {
-  padding: 3px 7px;
 }
 .edit-tab {
   border: none;
   background: none;
-  font-size: 13.5px;
+  font-size: 14.5px;
   color: var(--text-secondary);
-  padding: 6px 8px;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
+  padding: 2px 0;
 }
 .edit-tab.on {
   color: var(--text-primary);
-  font-weight: 600;
-  border-bottom-color: var(--accent-black);
+  font-weight: 700;
 }
 .edit-body {
   flex: 1;
@@ -1440,17 +1456,31 @@ code,
   background: var(--bg-app);
   z-index: 5;
 }
-.side-home {
-  width: 17px;
-  height: 17px;
-  border-radius: 5px;
-  background: var(--accent);
-  border: none;
+.app-badge {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-card);
+  box-shadow: var(--shadow-xs);
+  display: grid;
+  place-items: center;
   flex-shrink: 0;
   cursor: pointer;
+  padding: 0;
+  transition: box-shadow 0.15s ease;
 }
-.side-home:hover {
-  background: var(--accent-hover);
+.app-badge:hover {
+  box-shadow: var(--shadow-sm);
+}
+.side-head .iconbtn {
+  color: var(--text-secondary);
+  padding: 5px;
+  display: grid;
+  place-items: center;
+}
+.side-head .iconbtn:hover {
+  color: var(--text-primary);
 }
 .side-head .pname {
   border: none;
@@ -1771,14 +1801,14 @@ code,
 .edit-toolbar {
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 5px 2px;
+  gap: 3px;
+  padding: 6px 2px;
   border-bottom: 1px solid var(--border-subtle);
   flex-shrink: 0;
 }
 .et-btn {
-  width: 30px;
-  height: 30px;
+  width: 31px;
+  height: 31px;
   border: none;
   background: none;
   border-radius: 7px;

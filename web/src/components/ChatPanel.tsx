@@ -3,6 +3,7 @@ import { ChatMessage, Meta } from "../lib/api";
 import { stripArtifact, extractArtifact, extractForm } from "../lib/artifact";
 import { renderMarkdown } from "../lib/markdown";
 import { AgentSteps } from "./AgentSteps";
+import { PlusIcon, ArrowUp, StopIcon, XIcon, ExternalLink } from "./icons";
 import { ModelPicker } from "./ModelPicker";
 import { PlusMenu, AttachedContext } from "./PlusMenu";
 import { SkillEntry } from "../lib/skillCatalog";
@@ -141,7 +142,7 @@ export function ChatPanel({
                 <div className="file-chip">
                   <span>📄</span>
                   {artifactName}
-                  <span style={{ marginLeft: "auto", color: "var(--text-tertiary)" }}>↗</span>
+                  <span style={{ marginLeft: "auto", color: "var(--text-tertiary)", display: "inline-flex" }}><ExternalLink size={13} /></span>
                 </div>
               )}
               {text && (
@@ -171,19 +172,19 @@ export function ChatPanel({
               {activeSkill && (
                 <span className="ctx-chip skill">
                   🛠 {activeSkill.title}
-                  <button onClick={onClearSkill}>✕</button>
+                  <button onClick={onClearSkill}><XIcon size={10} /></button>
                 </span>
               )}
               {contexts.map((c, i) => (
                 <span key={i} className="ctx-chip">
                   {c.label}
-                  <button onClick={() => setContexts((p) => p.filter((_, j) => j !== i))}>✕</button>
+                  <button onClick={() => setContexts((p) => p.filter((_, j) => j !== i))}><XIcon size={10} /></button>
                 </span>
               ))}
               {pendingImages.map((img, i) => (
                 <span key={i} className="attach-chip">
                   <img src={img} alt="" />
-                  <button onClick={() => setPendingImages((p) => p.filter((_, j) => j !== i))}>✕</button>
+                  <button onClick={() => setPendingImages((p) => p.filter((_, j) => j !== i))}><XIcon size={10} /></button>
                 </span>
               ))}
             </div>
@@ -222,7 +223,7 @@ export function ChatPanel({
             />
             <div style={{ position: "relative" }}>
               <button className="iconbtn" title="附加内容" onClick={() => setPlusOpen((v) => !v)}>
-                ＋
+                <PlusIcon size={16} />
               </button>
               {plusOpen && (
                 <PlusMenu
@@ -238,7 +239,7 @@ export function ChatPanel({
             <ModelPicker meta={meta} onMetaChanged={onMetaChanged} onOpenSettings={onOpenSettings} align="up" />
             {streaming ? (
               <button className="send" onClick={onStop} title="停止" style={{ background: "var(--text-secondary)" }}>
-                ■
+                <StopIcon size={15} />
               </button>
             ) : (
               <button
@@ -247,7 +248,7 @@ export function ChatPanel({
                 disabled={(!input.trim() && !pendingImages.length && !contexts.length) || !hasProvider}
                 title="发送"
               >
-                ↑
+                <ArrowUp size={15} />
               </button>
             )}
           </div>

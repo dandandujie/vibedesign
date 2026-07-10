@@ -5,6 +5,18 @@ import { filesToDataUrls } from "../components/ChatPanel";
 import { ModelPicker } from "../components/ModelPicker";
 import { ChangelogButton } from "../components/ChangelogButton";
 import { CodebaseMenu, CodebaseCtx } from "../components/CodebaseMenu";
+import {
+  PlusIcon,
+  ArrowUp,
+  XIcon,
+  MoreHorizontal,
+  ExternalLink,
+  LinkIcon,
+  StarIcon,
+  CopyIcon,
+  PencilIcon,
+  TrashIcon,
+} from "../components/icons";
 
 interface Props {
   meta: Meta | null;
@@ -141,6 +153,15 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
     refresh();
   };
 
+  const toggleFavorite = async (id: string) => {
+    const p = await getProject(id);
+    if (p) {
+      p.favorite = !p.favorite;
+      await saveProject(p);
+    }
+    refresh();
+  };
+
   const providers = meta?.providers ?? [];
   const filtered = projects.filter((p) => p.name.toLowerCase().includes(query.toLowerCase()));
 
@@ -167,13 +188,13 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
               {codebase && (
                 <span className="ctx-chip">
                   {codebase.label}
-                  <button onClick={() => setCodebase(null)}>✕</button>
+                  <button onClick={() => setCodebase(null)}><XIcon size={10} /></button>
                 </span>
               )}
               {images.map((img, i) => (
                 <span key={i} className="attach-chip">
                   <img src={img} alt="" />
-                  <button onClick={() => setImages((p) => p.filter((_, j) => j !== i))}>✕</button>
+                  <button onClick={() => setImages((p) => p.filter((_, j) => j !== i))}><XIcon size={10} /></button>
                 </span>
               ))}
             </div>
@@ -206,7 +227,7 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
               }}
             />
             <button className="iconbtn" title="添加图片" onClick={() => fileRef.current?.click()}>
-              ＋
+              <PlusIcon size={16} />
             </button>
             <div className="pill-select" title="Design system">
               <span className="k">Design system</span>
@@ -230,7 +251,7 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
               <ModelPicker meta={meta} onMetaChanged={onMetaChanged} onOpenSettings={onOpenSettings} align="down" />
             </div>
             <button className="send" disabled={!prompt.trim()} onClick={() => create(prompt.trim())} title="开始设计">
-              ↑
+              <ArrowUp size={17} />
             </button>
           </div>
         </div>
@@ -293,17 +314,20 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
                       }}
                     />
                   ) : (
-                    <span className="name">{p.name}</span>
+                    <span className="name">
+                      {p.favorite && <StarIcon size={13} filled style={{ color: "var(--accent)", marginRight: 5, verticalAlign: -2 }} />}
+                      {p.name}
+                    </span>
                   )}
                   <span className="time">{timeAgo(p.updatedAt)}</span>
                   <div style={{ position: "relative" }} onClick={(e) => e.stopPropagation()}>
                     <button className="iconbtn row-more" onClick={() => setRowMenu(rowMenu === p.id ? null : p.id)}>
-                      ⋯
+                      <MoreHorizontal size={16} />
                     </button>
                     {rowMenu === p.id && (
                       <div className="mini-menu" style={{ right: 0 }}>
                         <button onClick={() => window.open(`${location.origin}${location.pathname}#/p/${p.id}`, "_blank")}>
-                          ↗ Open in new tab
+                          <ExternalLink size={14} /> Open in new tab
                         </button>
                         <button
                           onClick={async () => {
@@ -311,11 +335,17 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
                             setRowMenu(null);
                           }}
                         >
-                          🔗 Copy link
+                          <LinkIcon size={14} /> Copy link
                         </button>
-                        <button disabled title="即将支持">☆ Add to favorites</button>
-                        <button onClick={() => { setRowMenu(null); duplicate(p.id); }}>⧉ Duplicate</button>
-                        <button onClick={() => { setRowMenu(null); setRenaming(p.id); }}>✎ Rename</button>
+                        <button onClick={() => { setRowMenu(null); toggleFavorite(p.id); }}>
+                          <StarIcon size={14} filled={p.favorite} /> {p.favorite ? "Remove from favorites" : "Add to favorites"}
+                        </button>
+                        <button onClick={() => { setRowMenu(null); duplicate(p.id); }}>
+                          <CopyIcon size={14} /> Duplicate
+                        </button>
+                        <button onClick={() => { setRowMenu(null); setRenaming(p.id); }}>
+                          <PencilIcon size={14} /> Rename
+                        </button>
                         <div className="pm-sep" />
                         <button
                           className="danger"
@@ -327,7 +357,7 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
                             }
                           }}
                         >
-                          🗑 Delete Project
+                          <TrashIcon size={14} /> Delete Project
                         </button>
                       </div>
                     )}
@@ -402,9 +432,15 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
           )}
 
           {tab === "templates" && (
-            <p className="muted" style={{ padding: "14px 6px", fontSize: 13.5 }}>
-              模板库即将支持。先用上方的模板卡开始。
-            </p>
+            <div className="project-rows">
+              {TEMPLATES.map((t) => (
+                <div key={t.name} className="project-row" onClick={() => create(undefined, t.name)}>
+                  <span className="thumb" style={{ display: "grid", placeItems: "center", padding: 3 }}>{t.art}</span>
+                  <span className="name">{t.name}</span>
+                  <span className="time">模板</span>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </main>
@@ -415,7 +451,7 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
             <header>
               <h2>Add a design system</h2>
               <button className="iconbtn" onClick={() => setAddDSOpen(false)}>
-                ✕
+                <XIcon size={13} />
               </button>
             </header>
             <div className="content">

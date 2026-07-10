@@ -57,8 +57,9 @@ export const SKILL_GROUPS: SkillGroup[] = [
       { title: "Make tweakable", desc: "Add in-design tweak controls", skillId: "make-tweakable" },
       {
         title: "Claude API in prototypes",
-        desc: "Call the model from your HTML artifacts（即将支持）",
-        disabled: true,
+        desc: "Call the model from artifacts via window.claude.complete",
+        extraInstruction:
+          "The canvas runtime injects window.claude.complete(prompt: string): Promise<string> into every rendered artifact — a real bridge to the user's configured model. When the prototype needs AI behavior (chat replies, generated copy, smart search), call it directly and handle loading/error states. Note: it only exists inside this app's canvas; guard with `if (window.claude)` and provide a graceful fallback for exported HTML.",
       },
     ],
   },

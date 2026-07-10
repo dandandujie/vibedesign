@@ -1,4 +1,27 @@
-export type EditTool = "select" | "interact";
+import {
+  CursorIcon,
+  ClickThroughIcon,
+  TextIcon,
+  FrameIcon,
+  RectIcon,
+  OvalIcon,
+  ArrowNE,
+  LineIcon,
+  DrawIcon,
+  UndoIcon,
+  RedoIcon,
+} from "./icons";
+
+export type EditTool =
+  | "select"
+  | "interact"
+  | "text"
+  | "frame"
+  | "rectangle"
+  | "oval"
+  | "arrow"
+  | "line"
+  | "draw";
 
 interface Props {
   tool: EditTool;
@@ -7,47 +30,34 @@ interface Props {
   onRedo: () => void;
   canUndo: boolean;
   canRedo: boolean;
-  onDrawTool: (name: string) => void; // draw tools: staged for a later version
 }
 
-// Toolbar per user's Images 5-7: select · click-through · text · frame ·
-// rectangle · oval · arrow · line · draw · undo · redo.
-export function EditToolbar({ tool, onTool, onUndo, onRedo, canUndo, canRedo, onDrawTool }: Props) {
-  const draw = (name: string, glyph: string, title: string) => (
-    <button className="et-btn" title={`${title}（即将支持）`} onClick={() => onDrawTool(name)}>
-      {glyph}
+// Toolbar per Images 5-7/13: select · click-through | text frame rect oval
+// arrow line draw | undo redo — all real tools now.
+export function EditToolbar({ tool, onTool, onUndo, onRedo, canUndo, canRedo }: Props) {
+  const btn = (t: EditTool, icon: JSX.Element, title: string) => (
+    <button className={`et-btn ${tool === t ? "on" : ""}`} title={title} onClick={() => onTool(t)}>
+      {icon}
     </button>
   );
   return (
     <div className="edit-toolbar">
-      <button
-        className={`et-btn ${tool === "select" ? "on" : ""}`}
-        title="Select"
-        onClick={() => onTool("select")}
-      >
-        ➤
-      </button>
-      <button
-        className={`et-btn ${tool === "interact" ? "on" : ""}`}
-        title="Click through (interact with the page)"
-        onClick={() => onTool("interact")}
-      >
-        ➚
-      </button>
+      {btn("select", <CursorIcon size={15} />, "Select")}
+      {btn("interact", <ClickThroughIcon size={15} />, "Click through (interact with the page)")}
       <span className="et-sep" />
-      {draw("text", "T", "Text")}
-      {draw("frame", "#", "Frame")}
-      {draw("rectangle", "▭", "Rectangle")}
-      {draw("oval", "○", "Oval")}
-      {draw("arrow", "↗", "Arrow")}
-      {draw("line", "∕", "Line")}
-      {draw("draw", "✎", "Draw")}
+      {btn("text", <TextIcon size={15} />, "Text")}
+      {btn("frame", <FrameIcon size={15} />, "Frame")}
+      {btn("rectangle", <RectIcon size={15} />, "Rectangle")}
+      {btn("oval", <OvalIcon size={15} />, "Oval")}
+      {btn("arrow", <ArrowNE size={15} />, "Arrow")}
+      {btn("line", <LineIcon size={15} />, "Line")}
+      {btn("draw", <DrawIcon size={15} />, "Draw")}
       <span className="et-grow" />
       <button className="et-btn" title="Undo" disabled={!canUndo} onClick={onUndo}>
-        ↶
+        <UndoIcon size={15} />
       </button>
       <button className="et-btn" title="Redo" disabled={!canRedo} onClick={onRedo}>
-        ↷
+        <RedoIcon size={15} />
       </button>
     </div>
   );

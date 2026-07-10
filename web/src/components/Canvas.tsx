@@ -16,12 +16,14 @@ interface Props {
   streaming: boolean;
   awaitingArtifact: boolean;
   onSelected: (info: SelectedInfo | null) => void;
+  onDrawn?: () => void; // a drawing-tool shape was committed
+  onClaudeRequest?: (reqId: number, prompt: string) => void; // window.claude.complete
 }
 
 let reqCounter = 0;
 
 export const Canvas = forwardRef<CanvasHandle, Props>(function Canvas(
-  { html, refineMode, dimmed, streaming, awaitingArtifact, onSelected },
+  { html, refineMode, dimmed, streaming, awaitingArtifact, onSelected, onDrawn, onClaudeRequest },
   ref,
 ) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -94,11 +96,15 @@ export const Canvas = forwardRef<CanvasHandle, Props>(function Canvas(
           treeWaiters.current.delete(d.reqId);
           w(d.tree as TreeNode | null);
         }
+      } else if (d.type === "drawn") {
+        onDrawn?.();
+      } else if (d.type === "claude") {
+        onClaudeRequest?.(d.reqId as number, d.prompt as string);
       }
     }
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [refineMode, onSelected]);
+  }, [refineMode, onSelected, onDrawn, onClaudeRequest]);
 
   useEffect(() => {
     postCmd({ __vd_cmd: "enable", value: refineMode });
