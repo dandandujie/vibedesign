@@ -1,0 +1,46 @@
+# Auto-build & release desktop packages.
+# Trigger: push a tag like v0.2.0  →  GitHub Release with mac (arm64+x64 dmg/zip)
+# and Windows (x64 nsis/zip) artifacts. workflow_dispatch builds a draft release.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            args: --mac dmg zip --arm64 --x64
+          - os: windows-latest
+            args: --win nsis zip --x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm --prefix server ci
+          npm --prefix web ci
+
+      - name: Build web + bundle server
+        run: npm run build
+
+      - name: Package & publish
+        run: npx electron-builder ${{ matrix.args }} --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # no signing certs in CI — skip identity discovery on mac
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"

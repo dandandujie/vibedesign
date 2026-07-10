@@ -1,0 +1,127 @@
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from "react";
+import { injectInspector } from "../lib/inspector";
+import { SelectedInfo, TreeNode } from "../lib/types";
+
+export interface CanvasHandle {
+  postCmd: (cmd: Record<string, unknown>) => void;
+  serialize: () => Promise<string>;
+  getTree: () => Promise<TreeNode | null>;
+}
+
+interface Props {
+  html: string | null;
+  refineMode: boolean;
+  dimmed?: boolean; // annotate mode before a target is picked (field study §6)
+  streaming: boolean;
+  awaitingArtifact: boolean;
+  onSelected: (info: SelectedInfo | null) => void;
+}
+
+let reqCounter = 0;
+
+export const Canvas = forwardRef<CanvasHandle, Props>(function Canvas(
+  { html, refineMode, dimmed, streaming, awaitingArtifact, onSelected },
+  ref,
+) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const serializeWaiters = useRef<Map<number, (html: string) => void>>(new Map());
+  const treeWaiters = useRef<Map<number, (tree: TreeNode | null) => void>>(new Map());
+
+  const srcDoc = useMemo(() => (html ? injectInspector(html) : ""), [html]);
+
+  const postCmd = (cmd: Record<string, unknown>) => {
+    iframeRef.current?.contentWindow?.postMessage(cmd, "*");
+  };
+
+  useImperativeHandle(ref, () => ({
+    postCmd,
+    serialize: () =>
+      new Promise<string>((resolve) => {
+        const reqId = ++reqCounter;
+        serializeWaiters.current.set(reqId, resolve);
+        postCmd({ __vd_cmd: "serialize", reqId });
+        setTimeout(() => {
+          if (serializeWaiters.current.has(reqId)) {
+            serializeWaiters.current.delete(reqId);
+            resolve(html ?? "");
+          }
+        }, 1500);
+      }),
+    getTree: () =>
+      new Promise<TreeNode | null>((resolve) => {
+        const reqId = ++reqCounter;
+        treeWaiters.current.set(reqId, resolve);
+        postCmd({ __vd_cmd: "getTree", reqId });
+        setTimeout(() => {
+          if (treeWaiters.current.has(reqId)) {
+            treeWaiters.current.delete(reqId);
+            resolve(null);
+          }
+        }, 1500);
+      }),
+  }));
+
+  useEffect(() => {
+    function onMessage(e: MessageEvent) {
+      const d = e.data;
+      if (!d || d.__vd !== true) return;
+      if (d.type === "ready") {
+        postCmd({ __vd_cmd: "enable", value: refineMode });
+      } else if (d.type === "selected") {
+        onSelected(d.info as SelectedInfo);
+      } else if (d.type === "serialized") {
+        const w = serializeWaiters.current.get(d.reqId);
+        if (w) {
+          serializeWaiters.current.delete(d.reqId);
+          w(d.html as string);
+        }
+      } else if (d.type === "tree") {
+        const w = treeWaiters.current.get(d.reqId);
+        if (w) {
+          treeWaiters.current.delete(d.reqId);
+          w(d.tree as TreeNode | null);
+        }
+      }
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [refineMode, onSelected]);
+
+  useEffect(() => {
+    postCmd({ __vd_cmd: "enable", value: refineMode });
+    if (!refineMode) {
+      postCmd({ __vd_cmd: "clear" });
+      onSelected(null);
+    }
+  }, [refineMode]);
+
+  return (
+    <>
+      {!html && !awaitingArtifact && (
+        <div className="canvas-empty">
+          <div className="inner">
+            <h2>The canvas is empty</h2>
+            <p>在左边描述你想要的设计——原型、幻灯片、落地页、one-pager。设计会实时出现在这里。</p>
+          </div>
+        </div>
+      )}
+
+      {!html && awaitingArtifact && (
+        <div className="canvas-loading">
+          <div className="bar" />
+        </div>
+      )}
+
+      {html && (
+        <div className={`canvas-frame ${dimmed ? "dimmed" : ""}`}>
+          <iframe
+            ref={iframeRef}
+            title="artifact"
+            srcDoc={srcDoc}
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-pointer-lock"
+          />
+        </div>
+      )}
+    </>
+  );
+});

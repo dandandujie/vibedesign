@@ -1,0 +1,58 @@
+{
+  "name": "vibedesign",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local 1:1 replica of Claude Design (BYOK) — chat-driven design workbench.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dandandujie/vibedesign.git"
+  },
+  "main": "electron/main.cjs",
+  "scripts": {
+    "install:all": "npm --prefix server install && npm --prefix web install",
+    "dev": "concurrently -n server,web -c cyan,magenta \"npm --prefix server run dev\" \"npm --prefix web run dev\"",
+    "dev:server": "npm --prefix server run dev",
+    "dev:web": "npm --prefix web run dev",
+    "build": "npm --prefix web run build && npm --prefix server run bundle",
+    "app": "npm run build && electron .",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist": "npm run build && electron-builder --mac --win"
+  },
+  "build": {
+    "appId": "app.vibedesign.local",
+    "productName": "Vibedesign",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**",
+      "server/dist/**",
+      "web/dist/**",
+      "package.json"
+    ],
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.graphics-design"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "electron": "^37.0.0",
+    "electron-builder": "^25.1.8"
+  }
+}

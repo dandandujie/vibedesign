@@ -1,0 +1,48 @@
+const { app, BrowserWindow, shell } = require("electron");
+const path = require("path");
+
+// Writable data lives in userData (the packaged app dir is read-only).
+process.env.VD_DATA_DIR = path.join(app.getPath("userData"), "data");
+// Avoid clashing with a dev server on 8787.
+const PORT = process.env.PORT || "8788";
+process.env.PORT = PORT;
+
+// Boot the bundled Express server (API + static web/dist) in-process.
+require(path.join(__dirname, "..", "server", "dist", "server.cjs"));
+
+function createWindow() {
+  const win = new BrowserWindow({
+    width: 1440,
+    height: 900,
+    minWidth: 980,
+    minHeight: 640,
+    title: "Vibedesign",
+    titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
+    backgroundColor: "#faf9f5",
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  // External links open in the system browser, not in-app.
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith("http://localhost")) return { action: "allow" };
+    shell.openExternal(url);
+    return { action: "deny" };
+  });
+
+  // Give the embedded server a beat to bind before loading.
+  setTimeout(() => win.loadURL(`http://localhost:${PORT}`), 300);
+}
+
+app.whenReady().then(() => {
+  createWindow();
+  app.on("activate", () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  });
+});
+
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") app.quit();
+});
