@@ -1,5 +1,10 @@
 # Vibedesign — Claude Design 的 1:1 本地复刻（BYOK）
 
+[![Release](https://github.com/dandandujie/vibedesign/actions/workflows/release.yml/badge.svg)](https://github.com/dandandujie/vibedesign/actions/workflows/release.yml)
+[![Downloads](https://img.shields.io/github/v/release/dandandujie/vibedesign?label=download)](https://github.com/dandandujie/vibedesign/releases/latest)
+
+**直接下载桌面版**：[Releases](https://github.com/dandandujie/vibedesign/releases/latest) — Windows（`Setup .exe`）/ macOS（`arm64` Apple Silicon、`x64` Intel 的 dmg/zip）。未签名：Windows SmartScreen 选「仍要运行」；macOS 首次打开右键 → 打开（或 `xattr -dr com.apple.quarantine /Applications/Vibedesign.app`）。
+
 目标：使用时**感觉完全在用 Claude Design**——UI/UX/交互/设计逻辑/全流程 1:1，唯一差异是 BYOK（自带模型服务：Anthropic / OpenAI / OpenAI-Responses / Gemini 格式 + 自定义 baseURL）。
 
 - 复刻真值来自**实地考察** claude.ai/design（`docs/field-study.md`、`docs/tokens-field.md`——含整套扒下来的 `--om-*` design tokens），流程规格见 `docs/replication-spec.md`。
@@ -52,6 +57,17 @@ npm run dist:win           # 打 Windows 安装包（nsis/zip）→ release/
 ```
 
 桌面版把 Express 服务内嵌进主进程（端口 8788），数据存在系统 userData 目录，与开发环境隔离。
+
+### 发版（自动）
+
+推一个 `v*` tag，GitHub Actions 会在 macOS/Windows runner 上打包并自动发布 Release：
+
+```bash
+npm version patch          # 或手动改 version 后 git tag v0.x.y
+git push origin main --tags
+```
+
+产物：mac dmg/zip（arm64 + x64）+ Windows nsis 安装器/zip（x64），见 `.github/workflows/release.yml`。
 
 ## 功能清单（对齐 Claude Design 实地考察，docs/field-study.md）
 
