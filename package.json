@@ -23,6 +23,10 @@
   "build": {
     "appId": "app.vibedesign.local",
     "productName": "Vibedesign",
+    "publish": {
+      "provider": "github",
+      "releaseType": "release"
+    },
     "directories": {
       "output": "release"
     },
