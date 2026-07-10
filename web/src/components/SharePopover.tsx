@@ -3,13 +3,15 @@ import { useEffect, useRef, useState } from "react";
 interface Props {
   artifactHtml: string | null;
   projectName: string;
+  exportPng?: (selector: string | null, scale: number) => Promise<string | null>;
 }
 
 // Share popover per field study §9: access section + Copy link, then an
 // Export list (PDF / Standalone HTML / PowerPoint / More formats).
-export function SharePopover({ artifactHtml, projectName }: Props) {
+export function SharePopover({ artifactHtml, projectName, exportPng }: Props) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -112,18 +114,65 @@ export function SharePopover({ artifactHtml, projectName }: Props) {
             </span>
             <span className="go">Download</span>
           </button>
-          <button className="export-item" disabled>
+          <button
+            className="export-item"
+            disabled={!artifactHtml || !exportPng || busy === "pptx"}
+            onClick={async () => {
+              if (!exportPng) return;
+              setBusy("pptx");
+              try {
+                const img = await exportPng(null, 2);
+                if (img) {
+                  const { default: pptxgen } = await import("pptxgenjs");
+                  const pptx = new pptxgen();
+                  pptx.defineLayout({ name: "WIDE", width: 13.33, height: 7.5 });
+                  pptx.layout = "WIDE";
+                  const slide = pptx.addSlide();
+                  slide.addImage({ data: img, x: 0, y: 0, w: 13.33, h: 7.5, sizing: { type: "contain", w: 13.33, h: 7.5 } });
+                  await pptx.writeFile({ fileName: `${safe}.pptx` });
+                }
+              } finally {
+                setBusy(null);
+              }
+            }}
+          >
             <span className="ic">📽</span>
             <span className="tx">
               <span className="t">PowerPoint</span>
-              <span className="d">即将支持</span>
+              <span className="d">{busy === "pptx" ? "生成中…" : "Design as full-slide image"}</span>
             </span>
-            <span className="go">›</span>
+            <span className="go">Download</span>
+          </button>
+          <button
+            className="export-item"
+            disabled={!artifactHtml || !exportPng || busy === "png"}
+            onClick={async () => {
+              if (!exportPng) return;
+              setBusy("png");
+              try {
+                const img = await exportPng(null, 2);
+                if (img) {
+                  const a = document.createElement("a");
+                  a.href = img;
+                  a.download = `${safe}.png`;
+                  a.click();
+                }
+              } finally {
+                setBusy(null);
+              }
+            }}
+          >
+            <span className="ic">🖼</span>
+            <span className="tx">
+              <span className="t">PNG image</span>
+              <span className="d">{busy === "png" ? "生成中…" : "Full design at 2×"}</span>
+            </span>
+            <span className="go">Download</span>
           </button>
           <button className="export-item" disabled>
             <span className="ic">⋯</span>
             <span className="tx">
-              <span className="t">More formats and apps</span>
+              <span className="t">More apps</span>
               <span className="d">Canva · Vercel · Figma（即将支持）</span>
             </span>
             <span className="go">›</span>

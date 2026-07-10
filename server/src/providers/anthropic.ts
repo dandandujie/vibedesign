@@ -18,6 +18,14 @@ export const streamAnthropic: StreamFn = async function* (req) {
       max_tokens: config.maxTokens ?? 16000,
       system,
       stream: true,
+      ...(config.reasoning && config.effort
+        ? {
+            thinking: {
+              type: "enabled",
+              budget_tokens: { low: 2048, medium: 8192, high: 16384 }[config.effort],
+            },
+          }
+        : {}),
       messages: messages.map((m) => {
         if (!m.images?.length) return { role: m.role, content: m.content };
         const blocks: unknown[] = m.images

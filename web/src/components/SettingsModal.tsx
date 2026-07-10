@@ -155,6 +155,24 @@ export function SettingsModal({ meta, onClose, onChanged }: Props) {
                   onChange={(e) => setEditing({ ...editing, apiKey: e.target.value })}
                 />
               </div>
+              <div className="field">
+                <label>一句话描述（显示在模型菜单里）</label>
+                <input
+                  value={editing.description ?? ""}
+                  placeholder="For complex tasks"
+                  onChange={(e) => setEditing({ ...editing, description: e.target.value })}
+                />
+              </div>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
+                <input
+                  type="checkbox"
+                  checked={!!editing.reasoning}
+                  onChange={(e) =>
+                    setEditing({ ...editing, reasoning: e.target.checked, effort: e.target.checked ? (editing.effort ?? "medium") : undefined })
+                  }
+                />
+                该模型支持思考强度（Effort）控制
+              </label>
               <div className="form-actions">
                 <button className="btn ghost small" onClick={() => setEditing(null)}>
                   取消

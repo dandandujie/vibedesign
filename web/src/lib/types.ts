@@ -13,6 +13,21 @@ export interface SelectedStyles {
   marginTop: number;
   marginBottom: number;
   borderRadius: number;
+  overflow: string;
+  opacity: number;
+  zIndex: string;
+  display: string;
+  position: string;
+  width: number;
+  height: number;
+  widthRaw: string;
+  heightRaw: string;
+  alignSelf: string;
+  boxShadow: string;
+  border: string;
+  transform: string;
+  filter: string;
+  textShadow: string;
 }
 
 export interface SelectedInfo {
@@ -20,6 +35,8 @@ export interface SelectedInfo {
   tag: string;
   text: string;
   editable: boolean;
+  cls: string;
+  inlineStyle: string;
   rect: { x: number; y: number; w: number; h: number };
   styles: SelectedStyles;
 }

@@ -17,6 +17,7 @@ export const streamOpenAI: StreamFn = async function* (req) {
       model: config.model,
       stream: true,
       max_tokens: config.maxTokens ?? 16000,
+      ...(config.reasoning && config.effort ? { reasoning_effort: config.effort } : {}),
       messages: [
         { role: "system", content: system },
         ...messages.map((m) => {

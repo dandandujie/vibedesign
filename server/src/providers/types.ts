@@ -5,6 +5,8 @@
 
 export type ProviderFormat = "anthropic" | "openai" | "openai-responses" | "gemini";
 
+export type Effort = "low" | "medium" | "high";
+
 export interface ProviderConfig {
   id: string;
   name: string;
@@ -13,6 +15,9 @@ export interface ProviderConfig {
   apiKey: string;
   model: string;
   maxTokens?: number;
+  reasoning?: boolean; // model supports thinking/effort control
+  effort?: Effort; // current effort when reasoning is on
+  description?: string; // shown in the model picker
 }
 
 export interface ChatMessage {

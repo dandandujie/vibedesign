@@ -1,27 +1,30 @@
 import { useEffect, useRef, useState } from "react";
-import { ChatMessage, Meta, setActiveProvider } from "../lib/api";
+import { ChatMessage, Meta } from "../lib/api";
 import { stripArtifact, extractArtifact, extractForm } from "../lib/artifact";
 import { renderMarkdown } from "../lib/markdown";
 import { AgentSteps } from "./AgentSteps";
+import { ModelPicker } from "./ModelPicker";
+import { PlusMenu, AttachedContext } from "./PlusMenu";
+import { SkillEntry } from "../lib/skillCatalog";
 
 interface Props {
-  projectName: string;
-  onRename: (name: string) => void;
-  artifactName: string; // e.g. "Hero.html" — shown on file chips
+  artifactName: string;
   messages: ChatMessage[];
   streaming: boolean;
   meta: Meta | null;
   onMetaChanged: () => void;
-  skills: { id: string; title: string }[];
-  activeSkill: string | null;
-  setActiveSkill: (id: string | null) => void;
+  activeSkill: SkillEntry | null;
+  onClearSkill: () => void;
+  onOpenSkills: () => void;
+  onOpenDesignSystem: () => void;
   onSend: (text: string, images?: string[]) => void;
   onStop: () => void;
   onOpenSettings: () => void;
   hasProvider: boolean;
 }
 
-// Read image files into data URLs for multimodal messages.
+const EXAMPLES = ["一个 SaaS 落地页 hero，克制、暖色", "理财 App dashboard 原型", "5 页产品发布 keynote"];
+
 export function filesToDataUrls(files: FileList | File[]): Promise<string[]> {
   return Promise.all(
     Array.from(files)
@@ -39,37 +42,27 @@ export function filesToDataUrls(files: FileList | File[]): Promise<string[]> {
   );
 }
 
-const EXAMPLES = [
-  "一个 SaaS 落地页 hero，克制、暖色",
-  "理财 App dashboard 原型",
-  "5 页产品发布 keynote",
-];
-
 function renderUser(content: string) {
   const idx = content.indexOf("```html");
   if (idx === -1) return <div className="bubble">{content}</div>;
   return (
     <>
       <div className="bubble">{content.slice(0, idx).trim()}</div>
-      <div className="snapshot">📎 已附上当前设计快照</div>
+      <div className="snapshot">📎 已附上下文快照</div>
     </>
   );
 }
 
-// Chat pane per field study §2-3: narrow column, own header (logo + project
-// name), serif assistant prose, step groups, file chips, composer with the
-// model picker in the tool row (BYOK stand-in for "Opus 4.8 Medium ▾").
 export function ChatPanel({
-  projectName,
-  onRename,
   artifactName,
   messages,
   streaming,
   meta,
   onMetaChanged,
-  skills,
   activeSkill,
-  setActiveSkill,
+  onClearSkill,
+  onOpenSkills,
+  onOpenDesignSystem,
   onSend,
   onStop,
   onOpenSettings,
@@ -77,6 +70,8 @@ export function ChatPanel({
 }: Props) {
   const [input, setInput] = useState("");
   const [pendingImages, setPendingImages] = useState<string[]>([]);
+  const [contexts, setContexts] = useState<AttachedContext[]>([]);
+  const [plusOpen, setPlusOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -89,30 +84,22 @@ export function ChatPanel({
     const ta = taRef.current;
     if (!ta) return;
     ta.style.height = "auto";
-    ta.style.height = Math.min(ta.scrollHeight, 140) + "px";
+    ta.style.height = Math.min(ta.scrollHeight, 150) + "px";
   };
 
   const submit = () => {
     const t = input.trim();
-    if ((!t && pendingImages.length === 0) || streaming) return;
-    onSend(t || "（见附图）", pendingImages.length ? pendingImages : undefined);
+    if ((!t && pendingImages.length === 0 && contexts.length === 0) || streaming) return;
+    const ctxText = contexts.map((c) => c.text).join("");
+    onSend((t || "（见附件）") + ctxText, pendingImages.length ? pendingImages : undefined);
     setInput("");
     setPendingImages([]);
+    setContexts([]);
     requestAnimationFrame(autoGrow);
   };
 
-  const providers = meta?.providers ?? [];
-
   return (
     <section className="chat">
-      <div className="chat-head">
-        <span className="logo" />
-        <input className="pname" value={projectName} onChange={(e) => onRename(e.target.value)} spellCheck={false} />
-        <button className="iconbtn" title="返回项目列表" onClick={() => (location.hash = "#/")}>
-          ⌂
-        </button>
-      </div>
-
       <div className="messages" ref={scrollRef}>
         {messages.length === 0 && (
           <div className="empty">
@@ -132,7 +119,7 @@ export function ChatPanel({
           const isLastAssistant = m.role === "assistant" && i === messages.length - 1;
           if (m.role === "user") {
             return (
-              <div key={i} className="msg user">
+              <div key={i} id={`msg-${i}`} className="msg user">
                 {(m.images?.length ?? 0) > 0 && (
                   <div className="msg-imgs">
                     {m.images!.map((img, j) => (
@@ -148,7 +135,7 @@ export function ChatPanel({
           const hasArtifact = extractArtifact(m.content) != null;
           const hasForm = extractForm(m.content) != null;
           return (
-            <div key={i} className="msg assistant" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div key={i} id={`msg-${i}`} className="msg assistant" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <AgentSteps content={m.content} streaming={isLastAssistant && streaming} />
               {hasArtifact && !(isLastAssistant && streaming) && (
                 <div className="file-chip">
@@ -158,9 +145,7 @@ export function ChatPanel({
                 </div>
               )}
               {text && (
-                <div className={`bubble ${isLastAssistant && streaming ? "cursor" : ""}`}>
-                  {renderMarkdown(text)}
-                </div>
+                <div className={`bubble ${isLastAssistant && streaming ? "cursor" : ""}`}>{renderMarkdown(text)}</div>
               )}
               {hasForm && (
                 <div className="questions-card">
@@ -181,8 +166,20 @@ export function ChatPanel({
 
       <div className="composer">
         <div className="box">
-          {pendingImages.length > 0 && (
+          {(pendingImages.length > 0 || contexts.length > 0 || activeSkill) && (
             <div className="attach-row">
+              {activeSkill && (
+                <span className="ctx-chip skill">
+                  🛠 {activeSkill.title}
+                  <button onClick={onClearSkill}>✕</button>
+                </span>
+              )}
+              {contexts.map((c, i) => (
+                <span key={i} className="ctx-chip">
+                  {c.label}
+                  <button onClick={() => setContexts((p) => p.filter((_, j) => j !== i))}>✕</button>
+                </span>
+              ))}
               {pendingImages.map((img, i) => (
                 <span key={i} className="attach-chip">
                   <img src={img} alt="" />
@@ -223,50 +220,33 @@ export function ChatPanel({
                 e.target.value = "";
               }}
             />
-            <button className="iconbtn" title="添加图片（截图/参考图）" onClick={() => fileRef.current?.click()}>
-              ＋
-            </button>
-            <select
-              className="skill-pick"
-              value={activeSkill ?? ""}
-              onChange={(e) => setActiveSkill(e.target.value || null)}
-              title="设计技能"
-            >
-              <option value="">技能: 自动</option>
-              {skills.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.id}
-                </option>
-              ))}
-            </select>
+            <div style={{ position: "relative" }}>
+              <button className="iconbtn" title="附加内容" onClick={() => setPlusOpen((v) => !v)}>
+                ＋
+              </button>
+              {plusOpen && (
+                <PlusMenu
+                  onAttachFiles={() => fileRef.current?.click()}
+                  onAttachContext={(ctx) => setContexts((p) => [...p, ctx])}
+                  onOpenSkills={onOpenSkills}
+                  onOpenDesignSystem={onOpenDesignSystem}
+                  onClose={() => setPlusOpen(false)}
+                />
+              )}
+            </div>
             <div className="grow" />
-            <select
-              className="model-pick"
-              value={meta?.activeProviderId ?? ""}
-              onChange={async (e) => {
-                if (e.target.value === "__add__") {
-                  onOpenSettings();
-                  return;
-                }
-                await setActiveProvider(e.target.value);
-                onMetaChanged();
-              }}
-              title="模型（BYOK）"
-            >
-              {providers.length === 0 && <option value="">未配置模型</option>}
-              {providers.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-              <option value="__add__">＋ 添加…</option>
-            </select>
+            <ModelPicker meta={meta} onMetaChanged={onMetaChanged} onOpenSettings={onOpenSettings} align="up" />
             {streaming ? (
               <button className="send" onClick={onStop} title="停止" style={{ background: "var(--text-secondary)" }}>
                 ■
               </button>
             ) : (
-              <button className="send" onClick={submit} disabled={!input.trim() || !hasProvider} title="发送">
+              <button
+                className="send"
+                onClick={submit}
+                disabled={(!input.trim() && !pendingImages.length && !contexts.length) || !hasProvider}
+                title="发送"
+              >
                 ↑
               </button>
             )}

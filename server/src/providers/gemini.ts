@@ -22,7 +22,12 @@ export const streamGemini: StreamFn = async function* (req) {
         parts.push({ text: m.content });
         return { role: m.role === "assistant" ? "model" : "user", parts };
       }),
-      generationConfig: { maxOutputTokens: config.maxTokens ?? 16000 },
+      generationConfig: {
+        maxOutputTokens: config.maxTokens ?? 16000,
+        ...(config.reasoning && config.effort
+          ? { thinkingConfig: { thinkingBudget: { low: 1024, medium: 8192, high: 24576 }[config.effort] } }
+          : {}),
+      },
     }),
   });
 

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, shell } = require("electron");
+const { app, BrowserWindow, shell, ipcMain } = require("electron");
 const path = require("path");
 
 // Writable data lives in userData (the packaged app dir is read-only).
@@ -22,6 +22,7 @@ function createWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      preload: path.join(__dirname, "preload.cjs"),
     },
   });
 
@@ -45,4 +46,28 @@ app.whenReady().then(() => {
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
+});
+
+// ---- Auto update (user-triggered from the 更新日志 card) ----------------------
+ipcMain.on("vd:install-update", async (event) => {
+  const send = (s) => event.sender.send("vd:update-status", s);
+  try {
+    const { autoUpdater } = require("electron-updater");
+    autoUpdater.autoDownload = false;
+    autoUpdater.on("download-progress", (p) => send(`下载中 ${Math.round(p.percent)}%`));
+    autoUpdater.on("update-downloaded", () => {
+      send("重启安装中…");
+      setImmediate(() => autoUpdater.quitAndInstall());
+    });
+    autoUpdater.on("error", (err) => send(`更新失败：${String(err).slice(0, 80)}`));
+    const info = await autoUpdater.checkForUpdates();
+    if (info?.updateInfo) {
+      send("开始下载…");
+      await autoUpdater.downloadUpdate();
+    } else {
+      send("已是最新版本");
+    }
+  } catch (err) {
+    send(`更新失败：${String(err).slice(0, 80)}`);
+  }
 });

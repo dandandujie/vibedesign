@@ -57,6 +57,8 @@ const INSPECTOR_SCRIPT = String.raw`
       text: (el.textContent || "").trim().slice(0, 500),
       editable: leaf,
       rect: { x: r.x, y: r.y, w: r.width, h: r.height },
+      cls: el.getAttribute("class") || "",
+      inlineStyle: el.getAttribute("style") || "",
       styles: {
         color: toHex(cs.color),
         backgroundColor: toHex(cs.backgroundColor),
@@ -71,7 +73,22 @@ const INSPECTOR_SCRIPT = String.raw`
         paddingLeft: parseFloat(cs.paddingLeft) || 0,
         marginTop: parseFloat(cs.marginTop) || 0,
         marginBottom: parseFloat(cs.marginBottom) || 0,
-        borderRadius: parseFloat(cs.borderRadius) || 0
+        borderRadius: parseFloat(cs.borderRadius) || 0,
+        overflow: cs.overflow,
+        opacity: parseFloat(cs.opacity),
+        zIndex: cs.zIndex,
+        display: cs.display,
+        position: cs.position,
+        width: Math.round(r.width),
+        height: Math.round(r.height),
+        widthRaw: el.style.width || "",
+        heightRaw: el.style.height || "",
+        alignSelf: cs.alignSelf,
+        boxShadow: cs.boxShadow === "none" ? "" : cs.boxShadow,
+        border: el.style.border || "",
+        transform: el.style.transform || "",
+        filter: el.style.filter || "",
+        textShadow: cs.textShadow === "none" ? "" : cs.textShadow
       }
     };
   }
@@ -124,6 +141,11 @@ const INSPECTOR_SCRIPT = String.raw`
       post({ type: "selected", info: describe(selected) });
     }
     else if (d.__vd_cmd === "applyText" && selected) { selected.textContent = d.value; }
+    else if (d.__vd_cmd === "setAttr" && selected) {
+      if (d.value === null || d.value === "") selected.removeAttribute(d.name);
+      else selected.setAttribute(d.name, d.value);
+      post({ type: "selected", info: describe(selected) });
+    }
     else if (d.__vd_cmd === "setVar") {
       // Tweaks: set the CSS custom property live, and persist the new value
       // into the data-vd-props declaration so serialize() carries it.

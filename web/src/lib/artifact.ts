@@ -22,7 +22,8 @@ export function extractArtifact(text: string): string | null {
 export function stripArtifact(text: string): string {
   let t = text.replace(FENCE, "");
   t = t.replace(/```vdform\s*\n[\s\S]*?```/gi, ""); // form renders in canvas, not chat
-  const openIdx = t.search(/```(html|vdform)/i);
+  t = t.replace(/```vddesignsystem\s*\n[\s\S]*?```/gi, "（design system 规范已生成）");
+  const openIdx = t.search(/```(html|vdform|vddesignsystem)/i);
   if (openIdx !== -1) t = t.slice(0, openIdx) + "\n正在生成设计…";
   // Drop leading markdown heading markers (the "#### <name>" artifact title
   // line and any prose headings) so the chat reads as plain conversation.
@@ -73,6 +74,15 @@ export function extractForm(text: string): QuestionForm | null {
 
 export function stripForm(text: string): string {
   return text.replace(FORM_FENCE, "").trim();
+}
+
+// ---- Design-system spec block (```vddesignsystem) ----------------------------
+
+const DS_FENCE = /```vddesignsystem\s*\n([\s\S]*?)```/i;
+
+export function extractDesignSystemSpec(text: string): string | null {
+  const m = text.match(DS_FENCE);
+  return m ? m[1].trim() : null;
 }
 
 // ---- Tweaks props declaration (data-vd-props script tag) --------------------

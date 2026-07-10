@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { SelectedInfo, SelectedStyles, TreeNode } from "../lib/types";
+import { SelectedInfo, TreeNode } from "../lib/types";
 import { TweakGroup } from "../lib/artifact";
 import { TweaksPanel } from "./TweaksPanel";
+import { EditToolbar, EditTool } from "./EditToolbar";
 
 type Tab = "simple" | "pro" | "code" | "tweaks";
 
@@ -9,34 +10,48 @@ interface Props {
   selected: SelectedInfo | null;
   tweakGroups: TweakGroup[] | null;
   html: string;
-  onApplyStyle: (prop: keyof SelectedStyles | string, value: string) => void;
+  editTool: EditTool;
+  onEditTool: (t: EditTool) => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
+  onApplyStyle: (prop: string, value: string) => void;
   onApplyText: (value: string) => void;
+  onSetAttr: (name: string, value: string | null) => void;
   onSelectPath: (path: string) => void;
   getTree: () => Promise<TreeNode | null>;
-  onApplyCode: (html: string) => void;
+  exportPng: (selector: string | null, scale: number) => Promise<string | null>;
   onSetVar: (cssVar: string, cssValue: string, raw: number | string) => void;
   onAskTweaks: (description: string) => void;
   onSave: () => void;
   onDiscard: () => void;
+  onToast: (msg: string) => void;
 }
 
-const WEIGHTS = ["300", "400", "500", "600", "700", "800"];
-const ALIGNS: [string, string][] = [
-  ["left", "左"],
-  ["center", "中"],
-  ["right", "右"],
-];
-
-// Edit mode swaps the chat pane for this panel (field study §8): a Figma-lite
-// with Simple (properties) / Pro (layer tree) / Code / Tweaks tabs plus
-// Discard & Save. "Click any element on the canvas to edit it."
 export function EditPanel(props: Props) {
   const [tab, setTab] = useState<Tab>("simple");
 
+  const toolbar = (
+    <EditToolbar
+      tool={props.editTool}
+      onTool={props.onEditTool}
+      onUndo={props.onUndo}
+      onRedo={props.onRedo}
+      canUndo={props.canUndo}
+      canRedo={props.canRedo}
+      onDrawTool={() => props.onToast("绘图工具将在下个版本提供")}
+    />
+  );
+
   return (
     <section className="chat edit-panel">
-      <div className="chat-head">
-        <span style={{ fontSize: 12, fontWeight: 600 }}>Edit</span>
+      <div className="edit-tabs">
+        {(["simple", "pro", "code", "tweaks"] as Tab[]).map((t) => (
+          <button key={t} className={`edit-tab ${tab === t ? "on" : ""}`} onClick={() => setTab(t)}>
+            {t[0].toUpperCase() + t.slice(1)}
+          </button>
+        ))}
         <div style={{ flex: 1 }} />
         <button className="btn ghost small" onClick={props.onDiscard}>
           Discard
@@ -46,18 +61,38 @@ export function EditPanel(props: Props) {
         </button>
       </div>
 
-      <div className="edit-tabs">
-        {(["simple", "pro", "code", "tweaks"] as Tab[]).map((t) => (
-          <button key={t} className={`edit-tab ${tab === t ? "on" : ""}`} onClick={() => setTab(t)}>
-            {t === "simple" ? "Simple" : t === "pro" ? "Pro" : t === "code" ? "Code" : "Tweaks"}
-          </button>
-        ))}
-      </div>
-
       <div className="edit-body">
-        {tab === "simple" && <SimpleTab {...props} />}
-        {tab === "pro" && <ProTab {...props} />}
-        {tab === "code" && <CodeTab html={props.html} onApplyCode={props.onApplyCode} />}
+        {tab === "simple" && (
+          <>
+            {toolbar}
+            <AppearanceSection {...props} />
+            <BorderSection {...props} />
+            <ExportSection {...props} />
+          </>
+        )}
+        {tab === "pro" && (
+          <>
+            <LayerTreeSection {...props} />
+            {toolbar}
+            <AppearanceSection {...props} />
+            <SizingSection {...props} />
+            <PositionSection {...props} />
+            <LayoutSection {...props} />
+            <SpacingSection {...props} kind="padding" />
+            <SpacingSection {...props} kind="margin" />
+            <BorderSection {...props} />
+            <TypographySection {...props} />
+            <ExportSection {...props} />
+            <DebugSection {...props} />
+          </>
+        )}
+        {tab === "code" && (
+          <>
+            <LayerTreeSection {...props} />
+            {toolbar}
+            <DeclarationsEditor {...props} />
+          </>
+        )}
         {tab === "tweaks" &&
           (props.tweakGroups ? (
             <TweaksPanel
@@ -76,134 +111,397 @@ export function EditPanel(props: Props) {
   );
 }
 
-// ---- Simple: property controls for the selected element ---------------------
+// ---- shared field bits --------------------------------------------------------
 
-function SimpleTab({ selected, onApplyStyle, onApplyText }: Props) {
-  const [s, setS] = useState<SelectedStyles | null>(selected?.styles ?? null);
-  const [text, setText] = useState(selected?.text ?? "");
-
-  useEffect(() => {
-    setS(selected?.styles ?? null);
-    setText(selected?.text ?? "");
-  }, [selected?.path]);
-
-  if (!selected || !s) {
-    return (
-      <p className="muted small" style={{ lineHeight: 1.6, padding: "4px 2px" }}>
-        Click any element on the canvas to edit it. Shift 后续版本支持多选。
-      </p>
-    );
-  }
-
-  const set = (prop: keyof SelectedStyles, value: number | string, css?: string) => {
-    setS((prev) => (prev ? ({ ...prev, [prop]: value } as SelectedStyles) : prev));
-    onApplyStyle(prop, css ?? `${value}px`);
-  };
-
-  const knob = (label: string, prop: keyof SelectedStyles, min: number, max: number) => (
-    <div className="knob">
-      <span>{label}</span>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        value={Number(s[prop]) || 0}
-        onChange={(e) => set(prop, Number(e.target.value))}
-      />
-      <span className="val">{Math.round(Number(s[prop]) || 0)}</span>
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="ep-row">
+      <span className="ep-label">{label}</span>
+      <span className="ep-value">{children}</span>
     </div>
   );
+}
 
+function NumInput({
+  value,
+  suffix,
+  onCommit,
+}: {
+  value: number | string;
+  suffix?: string;
+  onCommit: (v: string) => void;
+}) {
+  const [v, setV] = useState(String(value));
+  useEffect(() => setV(String(value)), [value]);
   return (
-    <div className="refine-groups">
-      <div className="sel-tag">
-        <span className="tag">&lt;{selected.tag}&gt;</span>
-        <span className="muted small" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {selected.text.slice(0, 30)}
+    <input
+      className="ep-num"
+      value={v}
+      onChange={(e) => setV(e.target.value)}
+      onBlur={() => onCommit(v)}
+      onKeyDown={(e) => e.key === "Enter" && onCommit(v)}
+      placeholder={suffix}
+    />
+  );
+}
+
+function needSelection(selected: SelectedInfo | null) {
+  if (selected) return null;
+  return (
+    <p className="muted" style={{ fontSize: 13.5, lineHeight: 1.6, padding: "2px 2px", margin: 0 }}>
+      Click any element on the canvas to edit it.
+    </p>
+  );
+}
+
+// ---- Appearance (Image 5) -------------------------------------------------------
+
+function AppearanceSection({ selected, onApplyStyle }: Props) {
+  const [extra, setExtra] = useState<string | null>(null);
+  const empty = needSelection(selected);
+  return (
+    <div className="ep-section">
+      <div className="ep-head">Appearance</div>
+      {empty ?? (
+        <>
+          <Row label="Background">
+            <input
+              type="color"
+              value={/^#[0-9a-f]{6}$/i.test(selected!.styles.backgroundColor) ? selected!.styles.backgroundColor : "#ffffff"}
+              onChange={(e) => onApplyStyle("backgroundColor", e.target.value)}
+            />
+            <button className="ep-mini" onClick={() => onApplyStyle("backgroundColor", "transparent")}>
+              None
+            </button>
+          </Row>
+          <div className="ep-grid2">
+            <Row label="Radius">
+              <NumInput value={selected!.styles.borderRadius} suffix="px" onCommit={(v) => onApplyStyle("borderRadius", `${parseFloat(v) || 0}px`)} />
+            </Row>
+            <Row label="Overflow">
+              <select
+                className="ep-select"
+                value={selected!.styles.overflow}
+                onChange={(e) => onApplyStyle("overflow", e.target.value)}
+              >
+                {["visible", "hidden", "auto", "scroll"].map((o) => (
+                  <option key={o}>{o}</option>
+                ))}
+              </select>
+            </Row>
+            <Row label="Opacity">
+              <NumInput value={selected!.styles.opacity} onCommit={(v) => onApplyStyle("opacity", String(Math.min(1, Math.max(0, parseFloat(v) || 1))))} />
+            </Row>
+            <Row label="Z-index">
+              <NumInput value={selected!.styles.zIndex} suffix="auto" onCommit={(v) => onApplyStyle("zIndex", v || "auto")} />
+            </Row>
+          </div>
+          <div className="ep-add">
+            Add:{" "}
+            {(["shadow", "text shadow", "transform", "filter"] as const).map((k) => (
+              <button key={k} className="ep-add-link" onClick={() => setExtra(extra === k ? null : k)}>
+                {k}
+              </button>
+            ))}
+          </div>
+          {extra && (
+            <ExtraInput
+              kind={extra}
+              selected={selected!}
+              onApplyStyle={onApplyStyle}
+              onDone={() => setExtra(null)}
+            />
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function ExtraInput({
+  kind,
+  selected,
+  onApplyStyle,
+  onDone,
+}: {
+  kind: string;
+  selected: SelectedInfo;
+  onApplyStyle: (p: string, v: string) => void;
+  onDone: () => void;
+}) {
+  const propMap: Record<string, { prop: string; initial: string; hint: string }> = {
+    shadow: { prop: "boxShadow", initial: selected.styles.boxShadow || "0 4px 16px rgba(0,0,0,.12)", hint: "0 4px 16px rgba(0,0,0,.12)" },
+    "text shadow": { prop: "textShadow", initial: selected.styles.textShadow || "0 1px 2px rgba(0,0,0,.25)", hint: "0 1px 2px rgba(0,0,0,.25)" },
+    transform: { prop: "transform", initial: selected.styles.transform || "rotate(0deg)", hint: "rotate(3deg) scale(1.02)" },
+    filter: { prop: "filter", initial: selected.styles.filter || "blur(0px)", hint: "blur(2px) saturate(1.2)" },
+  };
+  const cfg = propMap[kind];
+  const [v, setV] = useState(cfg.initial);
+  return (
+    <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+      <input
+        className="ep-num"
+        style={{ flex: 1, textAlign: "left" }}
+        value={v}
+        placeholder={cfg.hint}
+        onChange={(e) => setV(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            onApplyStyle(cfg.prop, v);
+            onDone();
+          }
+        }}
+        autoFocus
+      />
+      <button
+        className="btn primary small"
+        onClick={() => {
+          onApplyStyle(cfg.prop, v);
+          onDone();
+        }}
+      >
+        应用
+      </button>
+    </div>
+  );
+}
+
+// ---- Border ----------------------------------------------------------------------
+
+function BorderSection({ selected, onApplyStyle }: Props) {
+  const [editing, setEditing] = useState(false);
+  if (!selected) return null;
+  return (
+    <div className="ep-section">
+      <div className="ep-head">
+        Border
+        <button className="ep-add-link" style={{ marginLeft: "auto" }} onClick={() => setEditing((v) => !v)}>
+          {selected.styles.border ? "Edit border" : "Add border"}
+        </button>
+      </div>
+      {editing && (
+        <ExtraInput
+          kind="border"
+          selected={selected}
+          onApplyStyle={(_, v) => onApplyStyle("border", v)}
+          onDone={() => setEditing(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ---- Sizing (Image 6) ---------------------------------------------------------------
+
+type SizeMode = "hug" | "fixed" | "fill";
+function sizeMode(raw: string): SizeMode {
+  if (!raw || raw === "auto" || raw === "fit-content") return "hug";
+  if (raw === "100%") return "fill";
+  return "fixed";
+}
+
+function SizingSection({ selected, onApplyStyle }: Props) {
+  if (!selected) return null;
+  const dim = (label: "Width" | "Height", prop: "width" | "height", raw: string, px: number) => {
+    const mode = sizeMode(raw);
+    const set = (m: SizeMode) => {
+      if (m === "hug") onApplyStyle(prop, "auto");
+      else if (m === "fill") onApplyStyle(prop, "100%");
+      else onApplyStyle(prop, `${px}px`);
+    };
+    return (
+      <div className="ep-row">
+        <span className="ep-label">{label}</span>
+        <span className="ep-value">
+          <NumInput value={px} suffix="px" onCommit={(v) => onApplyStyle(prop, `${parseFloat(v) || px}px`)} />
+          <span className="seg" style={{ marginLeft: 6 }}>
+            {(["hug", "fixed", "fill"] as SizeMode[]).map((m) => (
+              <button key={m} className={mode === m ? "on" : ""} onClick={() => set(m)}>
+                {m === "hug" ? "Hug" : m === "fixed" ? "Fixed" : "Fill"}
+              </button>
+            ))}
+          </span>
         </span>
       </div>
+    );
+  };
+  return (
+    <div className="ep-section">
+      <div className="ep-head">Sizing</div>
+      {dim("Width", "width", selected.styles.widthRaw, selected.styles.width)}
+      {dim("Height", "height", selected.styles.heightRaw, selected.styles.height)}
+      <Row label="Align self">
+        <select className="ep-select" value={selected.styles.alignSelf} onChange={(e) => onApplyStyle("alignSelf", e.target.value)}>
+          {["auto", "flex-start", "center", "flex-end", "stretch"].map((o) => (
+            <option key={o}>{o}</option>
+          ))}
+        </select>
+      </Row>
+    </div>
+  );
+}
 
-      {selected.editable && (
-        <div className="group">
-          <label>文字</label>
-          <textarea
-            rows={2}
-            value={text}
-            onChange={(e) => {
-              setText(e.target.value);
-              onApplyText(e.target.value);
-            }}
-          />
-        </div>
-      )}
-
-      <div className="group">
-        <label>排版</label>
-        {knob("字号", "fontSize", 8, 96)}
-        <div className="knob">
-          <span>字重</span>
-          <div className="seg" style={{ gridColumn: "2 / span 2" }}>
-            {WEIGHTS.map((w) => (
-              <button key={w} className={String(s.fontWeight) === w ? "on" : ""} onClick={() => set("fontWeight", w, w)}>
-                {w}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="knob">
-          <span>对齐</span>
-          <div className="seg" style={{ gridColumn: "2 / span 2" }}>
-            {ALIGNS.map(([v, label]) => (
-              <button key={v} className={s.textAlign === v ? "on" : ""} onClick={() => set("textAlign", v, v)}>
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="group">
-        <label>间距</label>
-        {knob("内上", "paddingTop", 0, 120)}
-        {knob("内下", "paddingBottom", 0, 120)}
-        {knob("内左", "paddingLeft", 0, 120)}
-        {knob("内右", "paddingRight", 0, 120)}
-        {knob("外上", "marginTop", 0, 120)}
-        {knob("外下", "marginBottom", 0, 120)}
-        {knob("圆角", "borderRadius", 0, 60)}
-      </div>
-
-      <div className="group">
-        <label>颜色</label>
-        <div className="row">
-          <input
-            type="color"
-            value={/^#([0-9a-f]{6})$/i.test(s.color) ? s.color : "#000000"}
-            onChange={(e) => set("color", e.target.value, e.target.value)}
-          />
-          <span className="small muted">文字 {s.color}</span>
-        </div>
-        <div className="row">
-          <input
-            type="color"
-            value={/^#([0-9a-f]{6})$/i.test(s.backgroundColor) ? s.backgroundColor : "#ffffff"}
-            onChange={(e) => set("backgroundColor", e.target.value, e.target.value)}
-          />
-          <span className="small muted">背景 {s.backgroundColor}</span>
-        </div>
+function PositionSection({ selected, onApplyStyle }: Props) {
+  if (!selected) return null;
+  const abs = selected.styles.position === "absolute";
+  return (
+    <div className="ep-section">
+      <div className="ep-head">Position</div>
+      <div className="seg">
+        <button className={!abs ? "on" : ""} onClick={() => onApplyStyle("position", "static")}>
+          Inline
+        </button>
+        <button className={abs ? "on" : ""} onClick={() => onApplyStyle("position", "absolute")}>
+          Absolute
+        </button>
       </div>
     </div>
   );
 }
 
-// ---- Pro: layer tree ---------------------------------------------------------
+function LayoutSection({ selected, onApplyStyle }: Props) {
+  if (!selected) return null;
+  return (
+    <div className="ep-section">
+      <div className="ep-head">Contents layout</div>
+      <Row label="Display">
+        <select className="ep-select" value={selected.styles.display} onChange={(e) => onApplyStyle("display", e.target.value)}>
+          {["block", "flex", "grid", "inline-block", "inline", "none"].map((o) => (
+            <option key={o}>{o}</option>
+          ))}
+        </select>
+      </Row>
+    </div>
+  );
+}
 
-function ProTab({ getTree, onSelectPath, selected, html }: Props) {
+// ---- Padding / Margin ---------------------------------------------------------------
+
+function SpacingSection({ selected, onApplyStyle, kind }: Props & { kind: "padding" | "margin" }) {
+  const [mode, setMode] = useState<"none" | "all" | "xy" | "ind">("all");
+  if (!selected) return null;
+  const s = selected.styles;
+  const base = kind === "padding" ? [s.paddingTop, s.paddingRight, s.paddingBottom, s.paddingLeft] : [s.marginTop, 0, s.marginBottom, 0];
+  const apply = (t: number, r: number, b: number, l: number) =>
+    onApplyStyle(kind, `${t}px ${r}px ${b}px ${l}px`);
+  return (
+    <div className="ep-section">
+      <div className="ep-head">
+        {kind === "padding" ? "Padding" : "Margin"}
+        <span className="seg" style={{ marginLeft: "auto" }}>
+          {(
+            [
+              ["none", "None"],
+              ["all", "All"],
+              ["xy", "X & Y"],
+              ["ind", "Individual"],
+            ] as const
+          ).map(([m, label]) => (
+            <button
+              key={m}
+              className={mode === m ? "on" : ""}
+              onClick={() => {
+                setMode(m);
+                if (m === "none") apply(0, 0, 0, 0);
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </span>
+      </div>
+      {mode === "all" && (
+        <Row label="All">
+          <NumInput value={base[0]} suffix="px" onCommit={(v) => { const n = parseFloat(v) || 0; apply(n, n, n, n); }} />
+        </Row>
+      )}
+      {mode === "xy" && (
+        <div className="ep-grid2">
+          <Row label="X">
+            <NumInput value={base[1]} suffix="px" onCommit={(v) => { const n = parseFloat(v) || 0; apply(base[0], n, base[2], n); }} />
+          </Row>
+          <Row label="Y">
+            <NumInput value={base[0]} suffix="px" onCommit={(v) => { const n = parseFloat(v) || 0; apply(n, base[1], n, base[3]); }} />
+          </Row>
+        </div>
+      )}
+      {mode === "ind" && (
+        <div className="ep-grid2">
+          {(["Top", "Right", "Bottom", "Left"] as const).map((side, i) => (
+            <Row key={side} label={side}>
+              <NumInput
+                value={base[i]}
+                suffix="px"
+                onCommit={(v) => {
+                  const arr = [...base];
+                  arr[i] = parseFloat(v) || 0;
+                  apply(arr[0], arr[1], arr[2], arr[3]);
+                }}
+              />
+            </Row>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---- Typography (kept from the old Simple tab) -----------------------------------------
+
+function TypographySection({ selected, onApplyStyle, onApplyText }: Props) {
+  const [text, setText] = useState(selected?.text ?? "");
+  useEffect(() => setText(selected?.text ?? ""), [selected?.path]);
+  if (!selected) return null;
+  return (
+    <div className="ep-section">
+      <div className="ep-head">Type</div>
+      {selected.editable && (
+        <textarea
+          className="ep-text"
+          rows={2}
+          value={text}
+          onChange={(e) => {
+            setText(e.target.value);
+            onApplyText(e.target.value);
+          }}
+        />
+      )}
+      <div className="ep-grid2">
+        <Row label="Size">
+          <NumInput value={selected.styles.fontSize} suffix="px" onCommit={(v) => onApplyStyle("fontSize", `${parseFloat(v) || 16}px`)} />
+        </Row>
+        <Row label="Weight">
+          <select className="ep-select" value={String(selected.styles.fontWeight)} onChange={(e) => onApplyStyle("fontWeight", e.target.value)}>
+            {["300", "400", "500", "600", "700", "800"].map((w) => (
+              <option key={w}>{w}</option>
+            ))}
+          </select>
+        </Row>
+        <Row label="Color">
+          <input
+            type="color"
+            value={/^#[0-9a-f]{6}$/i.test(selected.styles.color) ? selected.styles.color : "#000000"}
+            onChange={(e) => onApplyStyle("color", e.target.value)}
+          />
+        </Row>
+        <Row label="Align">
+          <select className="ep-select" value={selected.styles.textAlign} onChange={(e) => onApplyStyle("textAlign", e.target.value)}>
+            {["left", "center", "right", "justify"].map((a) => (
+              <option key={a}>{a}</option>
+            ))}
+          </select>
+        </Row>
+      </div>
+    </div>
+  );
+}
+
+// ---- Layer tree -----------------------------------------------------------------------
+
+function LayerTreeSection({ getTree, onSelectPath, selected, html }: Props) {
   const [tree, setTree] = useState<TreeNode | null>(null);
-
   useEffect(() => {
     let stale = false;
-    // slight delay so the iframe has (re)rendered before we snapshot the DOM
     const t = setTimeout(() => getTree().then((tr) => !stale && setTree(tr)), 300);
     return () => {
       stale = true;
@@ -213,7 +511,7 @@ function ProTab({ getTree, onSelectPath, selected, html }: Props) {
 
   if (!tree) return <p className="muted small">读取图层中…</p>;
   return (
-    <div className="layer-tree">
+    <div className="layer-tree ep-tree">
       <TreeRow node={tree} depth={0} activePath={selected?.path ?? null} onPick={onSelectPath} />
     </div>
   );
@@ -255,55 +553,127 @@ function TreeRow({
         {node.cls && <span className="layer-cls">.{node.cls}</span>}
         {node.text && <span className="layer-text">{node.text}</span>}
       </div>
-      {open && node.kids.map((k, i) => (
-        <TreeRow key={i} node={k} depth={depth + 1} activePath={activePath} onPick={onPick} />
-      ))}
+      {open && node.kids.map((k, i) => <TreeRow key={i} node={k} depth={depth + 1} activePath={activePath} onPick={onPick} />)}
     </>
   );
 }
 
-// ---- Code ---------------------------------------------------------------------
+// ---- Code tab: per-element declarations (Image 7) ---------------------------------------
 
-function CodeTab({ html, onApplyCode }: { html: string; onApplyCode: (h: string) => void }) {
-  const [code, setCode] = useState(html);
-  const [touched, setTouched] = useState(false);
-
+function DeclarationsEditor({ selected, onApplyStyle, onSetAttr }: Props) {
+  const [text, setText] = useState("");
   useEffect(() => {
-    if (!touched) setCode(html);
-  }, [html]);
+    if (!selected) return setText("");
+    const lines = selected.inlineStyle
+      .split(";")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((s) => s + ";");
+    if (selected.cls) lines.push(`@class: ${selected.cls};`);
+    setText(lines.join("\n"));
+  }, [selected?.path, selected?.inlineStyle]);
+
+  if (!selected) return needSelection(null);
+
+  const apply = () => {
+    for (const raw of text.split("\n")) {
+      const line = raw.trim().replace(/;$/, "");
+      if (!line) continue;
+      const m = line.match(/^(@?)([\w-]+)\s*:\s*(.*)$/);
+      if (!m) continue;
+      const [, at, name, value] = m;
+      if (at) onSetAttr(name, value || null);
+      else onApplyStyle(name.replace(/-([a-z])/g, (_, c) => c.toUpperCase()), value);
+    }
+  };
 
   return (
-    <div className="code-tab">
+    <div className="ep-section">
       <textarea
+        className="code-decls"
         spellCheck={false}
-        value={code}
-        onChange={(e) => {
-          setCode(e.target.value);
-          setTouched(true);
+        value={text}
+        placeholder={"background: #fff;\nborder-radius: 12px;\n@class: card;"}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={apply}
+        onKeyDown={(e) => {
+          if ((e.metaKey || e.ctrlKey) && e.key === "Enter") apply();
         }}
       />
-      <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-        <button
-          className="btn ghost small"
-          disabled={!touched}
-          onClick={() => {
-            setCode(html);
-            setTouched(false);
-          }}
-        >
-          还原
-        </button>
-        <button
-          className="btn primary small"
-          disabled={!touched}
-          onClick={() => {
-            onApplyCode(code);
-            setTouched(false);
-          }}
-        >
-          应用到画布
-        </button>
+      <p className="muted" style={{ fontSize: 13, margin: "6px 0 0" }}>
+        One declaration per line; @name edits an attribute.
+      </p>
+    </div>
+  );
+}
+
+// ---- Export selection (Images 5/6) ---------------------------------------------------
+
+function ExportSection({ selected, exportPng }: Props) {
+  const [preview, setPreview] = useState<string | null>(null);
+  const [scale, setScale] = useState(2);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let stale = false;
+    setPreview(null);
+    const t = setTimeout(() => {
+      exportPng(selected?.path ?? null, 1).then((url) => !stale && setPreview(url));
+    }, 400);
+    return () => {
+      stale = true;
+      clearTimeout(t);
+    };
+  }, [selected?.path]);
+
+  const doExport = async () => {
+    setBusy(true);
+    const url = await exportPng(selected?.path ?? null, scale);
+    setBusy(false);
+    if (!url) return;
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "export.png";
+    a.click();
+  };
+
+  return (
+    <div className="ep-section">
+      <div className="ep-head">Export selection</div>
+      <div className="export-preview">
+        {preview ? <img src={preview} alt="" /> : <span className="muted small">预览生成中…</span>}
       </div>
+      <div className="ep-grid2">
+        <Row label="Format">
+          <select className="ep-select" value="PNG" onChange={() => {}}>
+            <option>PNG</option>
+          </select>
+        </Row>
+        <Row label="Scale">
+          <select className="ep-select" value={scale} onChange={(e) => setScale(Number(e.target.value))}>
+            {[1, 2, 3].map((s) => (
+              <option key={s} value={s}>
+                {s}×
+              </option>
+            ))}
+          </select>
+        </Row>
+      </div>
+      <button className="btn primary" style={{ alignSelf: "flex-end" }} disabled={busy} onClick={doExport}>
+        {busy ? "导出中…" : "Export PNG"}
+      </button>
+    </div>
+  );
+}
+
+function DebugSection({ selected }: Props) {
+  if (!selected) return null;
+  return (
+    <div className="ep-section">
+      <div className="ep-head">Debug</div>
+      <pre className="ep-debug">
+        {JSON.stringify({ tag: selected.tag, path: selected.path, class: selected.cls }, null, 0)}
+      </pre>
     </div>
   );
 }
@@ -312,17 +682,11 @@ function AskTweaksInline({ onSubmit }: { onSubmit: (d: string) => void }) {
   const [text, setText] = useState("");
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      <p className="muted small" style={{ margin: 0, lineHeight: 1.6 }}>
+      <p className="muted" style={{ margin: 0, lineHeight: 1.6, fontSize: 13.5 }}>
         这个设计还没有可调控件。描述想调什么，Claude 会生成对应的滑块/色板。
       </p>
       <input
-        style={{
-          border: "1px solid var(--border-default)",
-          borderRadius: 8,
-          padding: "7px 9px",
-          fontSize: 12,
-          fontFamily: "inherit",
-        }}
+        style={{ border: "1px solid var(--border-default)", borderRadius: 8, padding: "8px 10px", fontSize: 14, fontFamily: "inherit" }}
         placeholder="如：标题字号和 CTA 颜色"
         value={text}
         onChange={(e) => setText(e.target.value)}

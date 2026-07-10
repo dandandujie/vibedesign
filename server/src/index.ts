@@ -69,6 +69,60 @@ app.post("/api/providers/active", (req, res) => {
 
 // ---- Projects --------------------------------------------------------------
 
+// ---- Version (update check) ---------------------------------------------------
+
+const APP_VERSION = process.env.npm_package_version ?? "0.1.0";
+app.get("/api/version", (_req, res) => res.json({ version: APP_VERSION }));
+
+// ---- GitHub codebase fetch (public repos, unauthenticated) ---------------------
+// Pulls a design-relevant slice of a public repo (styles, tokens, components)
+// to use as codebase context. Size-capped.
+
+app.post("/api/github-repo", async (req, res) => {
+  try {
+    const { url } = req.body as { url: string };
+    const m = String(url ?? "").match(/github\.com\/([\w.-]+)\/([\w.-]+)/);
+    if (!m) return res.status(400).json({ error: "无效的 GitHub 仓库 URL" });
+    const [, owner, repo] = m;
+    const gh = (p: string) =>
+      fetch(`https://api.github.com/${p}`, {
+        headers: { accept: "application/vnd.github+json", "user-agent": "vibedesign" },
+      });
+    const repoInfo = await gh(`repos/${owner}/${repo}`).then((r) => (r.ok ? r.json() : null));
+    if (!repoInfo) return res.status(404).json({ error: "仓库不可访问（需要公开仓库）" });
+    const branch = repoInfo.default_branch ?? "main";
+    const tree = await gh(`repos/${owner}/${repo}/git/trees/${branch}?recursive=1`).then((r) =>
+      r.ok ? r.json() : null,
+    );
+    if (!tree?.tree) return res.status(500).json({ error: "无法读取文件树" });
+
+    const interesting = (tree.tree as { path: string; type: string; size?: number }[])
+      .filter((f) => f.type === "blob")
+      .filter((f) =>
+        /(\.css|\.scss|tokens?\.(json|js|ts)|tailwind\.config\.|theme\.|readme\.md|package\.json)/i.test(f.path),
+      )
+      .filter((f) => (f.size ?? 0) < 60_000)
+      .slice(0, 12);
+
+    let total = 0;
+    const files: { path: string; content: string }[] = [];
+    for (const f of interesting) {
+      if (total > 150_000) break;
+      const raw = await fetch(
+        `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${f.path}`,
+      ).then((r) => (r.ok ? r.text() : ""));
+      if (raw) {
+        const content = raw.slice(0, 30_000);
+        total += content.length;
+        files.push({ path: f.path, content });
+      }
+    }
+    res.json({ repo: `${owner}/${repo}`, branch, files });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
 // ---- Design systems ----------------------------------------------------------
 
 app.get("/api/design-systems", (_req, res) => res.json(listDesignSystems()));
@@ -102,8 +156,14 @@ app.post("/api/chat", async (req, res) => {
     providerId,
     skillId,
     designSystemId,
-  }: { messages: ChatMessage[]; providerId?: string; skillId?: string; designSystemId?: string } =
-    req.body;
+    extraInstruction,
+  }: {
+    messages: ChatMessage[];
+    providerId?: string;
+    skillId?: string;
+    designSystemId?: string;
+    extraInstruction?: string;
+  } = req.body;
 
   const pid = providerId || getActiveProviderId();
   const provider = pid ? getProvider(pid) : undefined;
@@ -134,7 +194,8 @@ app.post("/api/chat", async (req, res) => {
   });
 
   const ds = designSystemId ? getDesignSystem(designSystemId) : undefined;
-  const system = buildSystem(skillId, ds);
+  let system = buildSystem(skillId, ds);
+  if (extraInstruction) system += `\n\n---\n\n# Active mode\n\n${extraInstruction}`;
   const streamFn = getStreamFn(provider.format);
 
   try {

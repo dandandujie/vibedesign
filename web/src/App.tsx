@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Meta, fetchMeta } from "./lib/api";
 import { HomePage } from "./pages/HomePage";
 import { EditorPage } from "./pages/EditorPage";
+import { DsSetupPage } from "./pages/DsSetupPage";
 import { SettingsModal } from "./components/SettingsModal";
 
 // Hash router: "#/" home · "#/p/<id>" editor (spec §1).
@@ -49,8 +50,15 @@ export function App() {
           onMetaChanged={refreshMeta}
           onOpenSettings={() => setSettingsOpen(true)}
         />
+      ) : route.startsWith("#/ds-setup") ? (
+        <DsSetupPage />
       ) : (
-        <HomePage meta={meta} onMetaChanged={refreshMeta} onOpenSettings={() => setSettingsOpen(true)} />
+        <HomePage
+          key={route} // re-read ?tab= when navigating back from a project
+          meta={meta}
+          onMetaChanged={refreshMeta}
+          onOpenSettings={() => setSettingsOpen(true)}
+        />
       )}
 
       {settingsOpen && meta && (

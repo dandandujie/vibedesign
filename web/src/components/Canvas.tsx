@@ -6,6 +6,7 @@ export interface CanvasHandle {
   postCmd: (cmd: Record<string, unknown>) => void;
   serialize: () => Promise<string>;
   getTree: () => Promise<TreeNode | null>;
+  exportPng: (selector: string | null, scale: number) => Promise<string | null>; // data URL
 }
 
 interface Props {
@@ -59,6 +60,18 @@ export const Canvas = forwardRef<CanvasHandle, Props>(function Canvas(
           }
         }, 1500);
       }),
+    exportPng: async (selector, scale) => {
+      const doc = iframeRef.current?.contentDocument;
+      if (!doc) return null;
+      const target = selector ? (doc.querySelector(selector) as HTMLElement | null) : doc.body;
+      if (!target) return null;
+      try {
+        const { domToPng } = await import("modern-screenshot");
+        return await domToPng(target, { scale, backgroundColor: "transparent" });
+      } catch {
+        return null;
+      }
+    },
   }));
 
   useEffect(() => {

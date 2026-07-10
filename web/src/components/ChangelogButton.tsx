@@ -1,0 +1,115 @@
+import { useEffect, useRef, useState } from "react";
+import { fetchVersion } from "../lib/api";
+
+const REPO = "dandandujie/vibedesign";
+
+interface Release {
+  tag_name: string;
+  name: string;
+  body: string;
+  published_at: string;
+  html_url: string;
+}
+
+declare global {
+  interface Window {
+    vd?: {
+      installUpdate: () => void;
+      onUpdateStatus: (cb: (s: string) => void) => void;
+    };
+  }
+}
+
+function newer(a: string, b: string): boolean {
+  const pa = a.replace(/^v/, "").split(".").map(Number);
+  const pb = b.replace(/^v/, "").split(".").map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] ?? 0) > (pb[i] ?? 0)) return true;
+    if ((pa[i] ?? 0) < (pb[i] ?? 0)) return false;
+  }
+  return false;
+}
+
+// 更新日志 button (user req #12): pulses when GitHub has a newer release;
+// card lists release notes; the update button auto-installs (Electron) or
+// opens the release page (web).
+export function ChangelogButton() {
+  const [open, setOpen] = useState(false);
+  const [releases, setReleases] = useState<Release[]>([]);
+  const [current, setCurrent] = useState("0.0.0");
+  const [hasNew, setHasNew] = useState(false);
+  const [updating, setUpdating] = useState<string | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    (async () => {
+      const v = await fetchVersion();
+      setCurrent(v);
+      try {
+        const rs: Release[] = await fetch(`https://api.github.com/repos/${REPO}/releases?per_page=6`).then((r) =>
+          r.ok ? r.json() : [],
+        );
+        setReleases(rs);
+        if (rs[0] && newer(rs[0].tag_name, v)) setHasNew(true);
+      } catch {
+        /* offline is fine */
+      }
+    })();
+    window.vd?.onUpdateStatus?.((s) => setUpdating(s));
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  const update = () => {
+    if (window.vd) {
+      setUpdating("正在下载更新…");
+      window.vd.installUpdate();
+    } else if (releases[0]) {
+      window.open(releases[0].html_url, "_blank");
+    }
+  };
+
+  return (
+    <div className="changelog-wrap" ref={ref}>
+      <button className={`btn ghost small ${hasNew ? "pulse-new" : ""}`} onClick={() => setOpen((v) => !v)}>
+        更新日志{hasNew ? " ●" : ""}
+      </button>
+      {open && (
+        <div className="changelog-pop">
+          <div className="cl-head">
+            <span>更新日志</span>
+            <span className="muted small">当前 v{current}</span>
+          </div>
+          {hasNew && (
+            <div className="cl-update">
+              <span>
+                新版本 <strong>{releases[0]?.tag_name}</strong> 可用
+              </span>
+              <button className="btn primary small" disabled={!!updating} onClick={update}>
+                {updating ?? (window.vd ? "自动更新并重启" : "去下载")}
+              </button>
+            </div>
+          )}
+          <div className="cl-list">
+            {releases.length === 0 && <p className="muted small">暂无发布记录（或无法访问 GitHub）。</p>}
+            {releases.map((r) => (
+              <div key={r.tag_name} className="cl-item">
+                <div className="cl-tag">
+                  {r.tag_name} <span className="muted small">{r.published_at?.slice(0, 10)}</span>
+                </div>
+                <div className="cl-body">{(r.body || r.name || "").slice(0, 400)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

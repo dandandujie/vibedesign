@@ -1,5 +1,7 @@
 export type ProviderFormat = "anthropic" | "openai" | "openai-responses" | "gemini";
 
+export type Effort = "low" | "medium" | "high";
+
 export interface ProviderConfig {
   id: string;
   name: string;
@@ -8,6 +10,33 @@ export interface ProviderConfig {
   apiKey: string;
   model: string;
   maxTokens?: number;
+  reasoning?: boolean;
+  effort?: Effort;
+  description?: string;
+}
+
+export async function fetchVersion(): Promise<string> {
+  try {
+    const r = await fetch("/api/version");
+    return (await r.json()).version as string;
+  } catch {
+    return "0.0.0";
+  }
+}
+
+export interface RepoFile {
+  path: string;
+  content: string;
+}
+
+export async function fetchGithubRepo(url: string): Promise<{ repo: string; files: RepoFile[] }> {
+  const r = await fetch("/api/github-repo", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ url }),
+  });
+  if (!r.ok) throw new Error((await r.json()).error ?? "拉取失败");
+  return r.json();
 }
 
 export interface ChatMessage {
@@ -85,6 +114,7 @@ export function streamChat(
     providerId?: string | null;
     skillId?: string | null;
     designSystemId?: string | null;
+    extraInstruction?: string | null;
   },
   handlers: StreamHandlers,
 ): () => void {

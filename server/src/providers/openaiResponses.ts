@@ -17,6 +17,7 @@ export const streamOpenAIResponses: StreamFn = async function* (req) {
       stream: true,
       instructions: system,
       max_output_tokens: config.maxTokens ?? 16000,
+      ...(config.reasoning && config.effort ? { reasoning: { effort: config.effort } } : {}),
       input: messages.map((m) => {
         const textType = m.role === "assistant" ? "output_text" : "input_text";
         const content: unknown[] = [];
