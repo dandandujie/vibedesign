@@ -2,6 +2,8 @@ import { useRef, useState } from "react";
 import { fetchGithubRepo } from "../lib/api";
 import { newProject, saveProject } from "../lib/projects";
 import { filesToDataUrls } from "../components/ChatPanel";
+import { parseDesignFile } from "../lib/designFileImport";
+import { XIcon } from "../components/icons";
 
 // Design-system setup, replicated from the live field study (2026-07-11):
 // full-page form (blurb / GitHub / local folder / assets / notes) →
@@ -17,9 +19,12 @@ export function DsSetupPage() {
   const [localLabel, setLocalLabel] = useState<string | null>(null);
   const [assets, setAssets] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
+  const [figCtx, setFigCtx] = useState<string | null>(null);
+  const [figLabel, setFigLabel] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const assetRef = useRef<HTMLInputElement>(null);
+  const figRef = useRef<HTMLInputElement>(null);
 
   const addRepo = async () => {
     if (!repoUrl.trim()) return;
@@ -84,6 +89,7 @@ export function DsSetupPage() {
       (notes ? `\n补充说明：${notes}\n` : "") +
       (repoCtx ? `\n（GitHub 代码库中的设计相关文件——提取其中的真实 tokens）\n${repoCtx}\n` : "") +
       (localCtx ? `\n（本地代码库中的设计相关文件——提取其中的真实 tokens）\n${localCtx}\n` : "") +
+      (figCtx ? `\n${figCtx}\n` : "") +
       `\n输出要求（务必遵守）：\n` +
       `1. 先输出一个 \`\`\`vddesignsystem 代码块：纯文本的 design system 规范（色彩 tokens 十六进制、字体族与字阶、间距刻度、圆角/阴影、组件规范、语气），后续设计将直接依据这份文本。\n` +
       `2. 然后输出 \`\`\`html 展示页：完整呈现 tokens、色板、字体样本与核心组件（按钮/卡片/输入框各状态）。`;
@@ -175,13 +181,40 @@ export function DsSetupPage() {
               frontend-focused subfolder.
             </p>
             <div className="dsr">
-              <span className="dsr-label">Upload a .fig file</span>
+              <span className="dsr-label">Upload a .fig / .pen file</span>
               <span className="dsr-value">
-                <button className="drop-zone" disabled title="即将支持">
-                  Drop .fig here or <u>browse</u>（即将支持）
-                </button>
+                <input
+                  ref={figRef}
+                  type="file"
+                  accept=".fig,.pen"
+                  hidden
+                  onChange={async (e) => {
+                    const f = e.target.files?.[0];
+                    e.target.value = "";
+                    if (!f) return;
+                    try {
+                      const ctx = await parseDesignFile(f);
+                      setFigCtx(ctx.text);
+                      setFigLabel(f.name);
+                      setErr(null);
+                    } catch (er) {
+                      setErr(er instanceof Error ? er.message : String(er));
+                    }
+                  }}
+                />
+                {figLabel ? (
+                  <span className="ctx-chip">
+                    {figLabel}
+                    <button onClick={() => { setFigCtx(null); setFigLabel(null); }}><XIcon size={10} /></button>
+                  </span>
+                ) : (
+                  <button className="drop-zone" onClick={() => figRef.current?.click()}>
+                    Drop .fig / .pen here or <u>browse</u>
+                  </button>
+                )}
               </span>
             </div>
+            <p className="dsr-note">Parsed locally in your browser — never uploaded.</p>
             <div className="dsr">
               <span className="dsr-label">Add fonts, logos and assets</span>
               <span className="dsr-value">

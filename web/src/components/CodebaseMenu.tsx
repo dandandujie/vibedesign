@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { fetchGithubRepo } from "../lib/api";
+import { clampPop } from "../lib/popover";
 
 export interface CodebaseCtx {
   label: string;
@@ -101,7 +102,7 @@ export function CodebaseMenu({ current, onSet }: Props) {
         {"</>"}
       </button>
       {open && (
-        <div className="plus-menu" style={{ width: 300 }}>
+        <div className="plus-menu" style={{ width: 300 }} ref={clampPop}>
           <div className="pm-label" style={{ fontSize: 14.5, color: "var(--text-primary)", fontWeight: 600 }}>
             Base designs off what's currently in code?
           </div>

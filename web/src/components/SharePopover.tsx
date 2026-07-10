@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { clampPop } from "../lib/popover";
 
 interface Props {
   artifactHtml: string | null;
@@ -68,7 +69,7 @@ export function SharePopover({ artifactHtml, projectName, exportPng }: Props) {
         ↗ Share
       </button>
       {open && (
-        <div className="share-pop">
+        <div className="share-pop" ref={clampPop}>
           <div className="access">
             <span className="sec-label">Who can access</span>
             <select defaultValue="local">

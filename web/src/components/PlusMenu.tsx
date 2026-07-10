@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { ProjectListItem, listProjects, getProject } from "../lib/projects";
 import { fetchGithubRepo } from "../lib/api";
+import { parseDesignFile } from "../lib/designFileImport";
+import { clampPop } from "../lib/popover";
 
 export interface AttachedContext {
   label: string; // shown as a chip
@@ -19,6 +21,7 @@ interface Props {
 // system, Skills and Manage connectors rows.
 export function PlusMenu({ onAttachFiles, onAttachContext, onOpenSkills, onOpenDesignSystem, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);
+  const figRef = useRef<HTMLInputElement>(null);
   const [view, setView] = useState<"root" | "projects" | "github">("root");
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [repoUrl, setRepoUrl] = useState("");
@@ -111,7 +114,7 @@ export function PlusMenu({ onAttachFiles, onAttachContext, onOpenSkills, onOpenD
   };
 
   return (
-    <div className="plus-menu" ref={ref}>
+    <div className="plus-menu" ref={(el) => { (ref as React.MutableRefObject<HTMLDivElement | null>).current = el; clampPop(el); }}>
       {view === "root" && (
         <>
           <div className="pm-label">Files</div>
@@ -131,9 +134,26 @@ export function PlusMenu({ onAttachFiles, onAttachContext, onOpenSkills, onOpenD
           </button>
           <div className="pm-sep" />
           <div className="pm-label">Designs</div>
-          <button className="pm-item" disabled title="即将支持">
-            <span className="ic">⬆</span> Upload .fig file
-            <span className="pm-tail">即将支持</span>
+          <input
+            ref={figRef}
+            type="file"
+            accept=".fig,.pen"
+            hidden
+            onChange={async (e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (!f) return;
+              try {
+                onAttachContext(await parseDesignFile(f));
+                onClose();
+              } catch (err) {
+                setErr(err instanceof Error ? err.message : String(err));
+              }
+            }}
+          />
+          <button className="pm-item" onClick={() => figRef.current?.click()}>
+            <span className="ic">⬆</span> Upload .fig / .pen file
+            <span className="pm-tail">本地解析</span>
           </button>
           <div className="pm-sep" />
           <button className="pm-item" onClick={() => { onOpenDesignSystem(); onClose(); }}>

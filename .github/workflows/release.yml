@@ -45,14 +45,21 @@ jobs:
           # no signing certs in CI — skip identity discovery on mac
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
-  # Fill the release body with auto-generated notes (commits since last tag)
-  # so the in-app 更新日志 card has real content to show.
+  # Fill the release body so the in-app 更新日志 card has real content:
+  # hand-written notes from .release-notes/<tag>.md win; otherwise fall back
+  # to auto-generated notes (commits since last tag).
   notes:
     needs: build
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:
-      - name: Generate release notes
-        run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --generate-notes
+      - uses: actions/checkout@v4
+      - name: Fill release notes
+        run: |
+          if [ -f ".release-notes/${GITHUB_REF_NAME}.md" ]; then
+            gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --notes-file ".release-notes/${GITHUB_REF_NAME}.md"
+          else
+            gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --generate-notes
+          fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

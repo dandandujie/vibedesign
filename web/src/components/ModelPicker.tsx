@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Meta, ProviderConfig, Effort, setActiveProvider, saveProvider } from "../lib/api";
 import { ChevronDown, ChevronRight } from "./icons";
+import { clampPop } from "../lib/popover";
 
 interface Props {
   meta: Meta | null;
@@ -74,7 +75,7 @@ export function ModelPicker({ meta, onMetaChanged, onOpenSettings, align = "up" 
       </button>
 
       {open && (
-        <div className="model-menu">
+        <div className="model-menu" ref={clampPop}>
           {providers.length === 0 && (
             <button
               className="model-item"
@@ -135,7 +136,7 @@ export function ModelPicker({ meta, onMetaChanged, onOpenSettings, align = "up" 
           </button>
 
           {sub === "effort" && active?.reasoning && (
-            <div className="model-submenu">
+            <div className="model-submenu" ref={clampPop}>
               {EFFORTS.map((e) => (
                 <button key={e} className="model-item" onClick={() => setEffort(e)}>
                   <span className="ti">{EFFORT_LABEL[e]}</span>
@@ -145,7 +146,7 @@ export function ModelPicker({ meta, onMetaChanged, onOpenSettings, align = "up" 
             </div>
           )}
           {sub === "more" && (
-            <div className="model-submenu">
+            <div className="model-submenu" ref={clampPop}>
               {more.map((p) => (
                 <button key={p.id} className="model-item" onClick={() => pick(p)}>
                   <span className="ti">{p.name}</span>

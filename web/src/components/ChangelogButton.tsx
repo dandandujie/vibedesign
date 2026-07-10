@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { fetchVersion } from "../lib/api";
+import { clampPop } from "../lib/popover";
 
 const REPO = "dandandujie/vibedesign";
 
@@ -18,6 +19,19 @@ declare global {
       onUpdateStatus: (cb: (s: string) => void) => void;
     };
   }
+}
+
+// strip markdown noise from generate-notes bodies (links, bold, PR URLs)
+function cleanNotes(body: string): string {
+  return body
+    .replace(/\*\*Full Changelog\*\*.*$/ms, "")
+    .replace(/by @[\w-]+ in https?:\/\/\S+/g, "")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/\*\*/g, "")
+    .replace(/^#+\s*/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+    .slice(0, 500);
 }
 
 function newer(a: string, b: string): boolean {
@@ -46,11 +60,11 @@ export function ChangelogButton() {
       const v = await fetchVersion();
       setCurrent(v);
       try {
-        const rs: Release[] = await fetch(`https://api.github.com/repos/${REPO}/releases?per_page=6`).then((r) =>
+        const rs: Release[] = await fetch(`https://api.github.com/repos/${REPO}/releases?per_page=6`, { cache: "no-store" }).then((r) =>
           r.ok ? r.json() : [],
         );
         setReleases(rs);
-        if (rs[0] && newer(rs[0].tag_name, v)) setHasNew(true);
+        setHasNew(!!rs[0] && newer(rs[0].tag_name, v));
       } catch {
         /* offline is fine */
       }
@@ -82,7 +96,7 @@ export function ChangelogButton() {
         更新日志{hasNew ? " ●" : ""}
       </button>
       {open && (
-        <div className="changelog-pop">
+        <div className="changelog-pop" ref={clampPop}>
           <div className="cl-head">
             <span>更新日志</span>
             <span className="muted small">当前 v{current}</span>
@@ -104,7 +118,7 @@ export function ChangelogButton() {
                 <div className="cl-tag">
                   {r.tag_name} <span className="muted small">{r.published_at?.slice(0, 10)}</span>
                 </div>
-                <div className="cl-body">{(r.body || r.name || "").slice(0, 400)}</div>
+                <div className="cl-body">{cleanNotes(r.body || r.name || "")}</div>
               </div>
             ))}
           </div>

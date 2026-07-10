@@ -26,6 +26,7 @@ import {
   TrashIcon,
   ChevronRight,
 } from "../components/icons";
+import { clampPop } from "../lib/popover";
 
 type CanvasTool = null | "annotate" | "edit" | "tweaks";
 
@@ -450,7 +451,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
               <ChevronDown size={14} />
             </button>
             {projMenu && (
-              <div className="mini-menu">
+              <div className="mini-menu" ref={clampPop}>
                 <button
                   onClick={() => {
                     setProjMenu(false);
@@ -476,7 +477,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
               <HistoryIcon size={15} />
             </button>
             {historyOpen && (
-              <div className="mini-menu wide">
+              <div className="mini-menu wide" ref={clampPop}>
                 {messages.filter((m) => m.role === "user").length === 0 && (
                   <span className="muted small" style={{ padding: "6px 10px" }}>
                     暂无历史
@@ -625,7 +626,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
               ▶ Present <ChevronDown size={12} />
             </button>
             {presentMenu && (
-              <div className="mini-menu" style={{ right: 0 }}>
+              <div className="mini-menu" style={{ right: 0 }} ref={clampPop}>
                 <button
                   onClick={() => {
                     setPresentMenu(false);

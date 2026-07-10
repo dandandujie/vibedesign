@@ -17,7 +17,7 @@ export interface ProviderConfig {
 
 export async function fetchVersion(): Promise<string> {
   try {
-    const r = await fetch("/api/version");
+    const r = await fetch("/api/version", { cache: "no-store" });
     return (await r.json()).version as string;
   } catch {
     return "0.0.0";

@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getStreamFn, DEFAULT_BASE_URLS, ChatMessage, ProviderConfig } from "./providers/index.js";
 import { buildSystem, listSkills } from "./brain.js";
@@ -70,9 +70,22 @@ app.post("/api/providers/active", (req, res) => {
 // ---- Projects --------------------------------------------------------------
 
 // ---- Version (update check) ---------------------------------------------------
+// The app version lives in the ROOT package.json (electron-builder versions
+// releases from it) — injected at bundle time, read from disk in dev.
 
-const APP_VERSION = process.env.npm_package_version ?? "0.1.0";
-app.get("/api/version", (_req, res) => res.json({ version: APP_VERSION }));
+declare const __APP_VERSION__: string | undefined;
+
+function appVersion(): string {
+  if (typeof __APP_VERSION__ !== "undefined" && __APP_VERSION__) return __APP_VERSION__;
+  try {
+    const root = JSON.parse(readFileSync(join(moduleDir, "..", "..", "package.json"), "utf8"));
+    return root.version ?? "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+}
+
+app.get("/api/version", (_req, res) => res.json({ version: appVersion() }));
 
 // ---- GitHub codebase fetch (public repos, unauthenticated) ---------------------
 // Pulls a design-relevant slice of a public repo (styles, tokens, components)

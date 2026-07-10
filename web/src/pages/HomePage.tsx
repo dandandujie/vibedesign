@@ -17,6 +17,7 @@ import {
   PencilIcon,
   TrashIcon,
 } from "../components/icons";
+import { clampPop } from "../lib/popover";
 
 interface Props {
   meta: Meta | null;
@@ -325,7 +326,7 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
                       <MoreHorizontal size={16} />
                     </button>
                     {rowMenu === p.id && (
-                      <div className="mini-menu" style={{ right: 0 }}>
+                      <div className="mini-menu" style={{ right: 0 }} ref={clampPop}>
                         <button onClick={() => window.open(`${location.origin}${location.pathname}#/p/${p.id}`, "_blank")}>
                           <ExternalLink size={14} /> Open in new tab
                         </button>
