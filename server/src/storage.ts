@@ -117,10 +117,15 @@ function loadBuiltinDesignSystems(): DesignSystem[] {
       // drop the leading YAML front-matter (version/name/description metadata)
       // so both the injected content and the card preview start at the spec.
       const raw = readFileSync(file, "utf8").replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n+/, "");
+      // Machine-readable :root {} token contract — the strongest brand-fidelity
+      // path (buildSystem pastes it verbatim + forbids bare hex outside :root).
+      const tokensFile = join(BUILTIN_DS_DIR, brand, "tokens.css");
+      const tokensCss = existsSync(tokensFile) ? readFileSync(tokensFile, "utf8").trim() : undefined;
       out.push({
         id: `builtin:${brand}`,
         name: prettyBrand(brand),
         content: raw,
+        ...(tokensCss ? { tokensCss } : {}),
         category: "内置 · awesome-design-md",
         builtin: true,
         updatedAt: 0,

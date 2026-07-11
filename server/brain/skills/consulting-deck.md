@@ -95,7 +95,7 @@ Only after those are clear, scaffold the deck and start writing.
    ```
 2. **Pick a theme.** Open the deck and press `T` to cycle. Or hard-code it:
    ```html
-   <link rel="stylesheet" id="theme-link" href="/api/deck-/api/deck-assets/themes/aurora.css">
+   <link rel="stylesheet" id="theme-link" href="/api/deck-assets/themes/aurora.css">
    ```
    Catalog in [references/themes.md](references/themes.md).
 3. **Pick layouts.** Copy `<section class="slide">...</section>` blocks out of
@@ -104,7 +104,7 @@ Only after those are clear, scaffold the deck and start writing.
 4. **Add animations.** Put `data-anim="fade-up"` (or `class="anim-fade-up"`) on
    any element. On `<ul>`/grids, use `anim-stagger-list` for sequenced reveals.
    For canvas FX, use `<div data-fx="knowledge-graph">...</div>` and include
-   `<script src="/api/deck-/api/deck-assets/animations/fx-runtime.js"></script>`.
+   `<script src="/api/deck-assets/animations/fx-runtime.js"></script>`.
    Catalog in [references/animations.md](references/animations.md).
 5. **Use a full-deck template.** Copy `templates/full-decks/<name>/` into
    `examples/my-talk/` as a starting point. Each folder is self-contained with
@@ -127,7 +127,7 @@ Only after those are clear, scaffold the deck and start writing.
   a new `templates/single-page/*.html` if none of the 30 fit.
 - **Respect chrome slots.** `.deck-header`, `.deck-footer`, `.slide-number`
   and the progress bar are provided by `/api/deck-assets/base.css` + `runtime.js`.
-- **Keyboard-first.** Always include `<script src="/api/deck-/api/deck-assets/runtime.js"></script>`
+- **Keyboard-first.** Always include `<script src="/api/deck-assets/runtime.js"></script>`
   so the deck supports ← → / T / A / F / S / O / hash deep-links.
 - **One `.slide` per logical page.** `runtime.js` makes `.slide.is-active`
   visible; all others are hidden.
