@@ -119,12 +119,15 @@ const INSPECTOR_SCRIPT = String.raw`
     if (e.target && e.target.nodeType === 1) select(e.target);
   }, true);
 
-  // Navigation guard: a self-contained artifact should never unload itself.
-  // Placeholder links like <a href="/"> or a real <form> submit would
-  // otherwise resolve against the parent origin and replace the preview with
-  // the host app (or a blank page). We block only the DEFAULT navigation, not
-  // the event — so a prototype's own click/submit handlers still run. Runs
-  // regardless of refine mode. External http(s) links open in a new tab.
+  // Navigation guard: a self-contained artifact must never unload itself.
+  // In a srcdoc iframe the document base URL is the PARENT page's URL, so even
+  // an in-page link like <a href="#about"> resolves to
+  // http://host/#about and replaces the preview with the host app. Placeholder
+  // links (<a href="/">) and <form> submits do the same. We block the DEFAULT
+  // navigation only (not the event → the prototype's own handlers still run):
+  //   #frag  → scroll to that element in-document (no location change)
+  //   http(s)/mailto/tel → open in a new tab
+  //   everything else (/, relative, empty) → swallowed
   document.addEventListener("click", function (e) {
     if (e.defaultPrevented) return;
     var el = e.target;
@@ -135,21 +138,28 @@ const INSPECTOR_SCRIPT = String.raw`
     }
     if (!a) return;
     var href = a.getAttribute("href") || "";
-    if (href === "" || href.charAt(0) === "#" || href.toLowerCase().indexOf("javascript:") === 0) return;
+    if (href.toLowerCase().indexOf("javascript:") === 0) return;
     var target = (a.getAttribute("target") || "").toLowerCase();
-    if (target === "_blank") return; // already opens elsewhere
+    if (target === "_blank") return;
+    if (href.charAt(0) === "#") {
+      e.preventDefault();
+      var id = href.slice(1);
+      if (!id) { window.scrollTo({ top: 0, behavior: "smooth" }); return; }
+      var tgt = document.getElementById(id) || document.getElementsByName(id)[0];
+      if (tgt && tgt.scrollIntoView) tgt.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
     e.preventDefault();
     if (/^(https?:|mailto:|tel:)/i.test(href)) {
       try { window.open(a.href, "_blank", "noopener"); } catch (err) {}
     }
-    // relative/internal placeholder links: swallowed (no navigation)
-  }, false);
+  }, true);
 
   document.addEventListener("submit", function (e) {
     // Real submits navigate away; prototypes handle data via their own JS,
     // which still fires because we only block the default.
     e.preventDefault();
-  }, false);
+  }, true);
 
   function serialize() {
     var clone = document.documentElement.cloneNode(true);

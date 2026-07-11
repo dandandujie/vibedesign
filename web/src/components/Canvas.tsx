@@ -32,9 +32,26 @@ export const Canvas = forwardRef<CanvasHandle, Props>(function Canvas(
   const treeWaiters = useRef<Map<number, (tree: TreeNode | null) => void>>(new Map());
 
   const srcDoc = useMemo(() => (html ? injectInspector(html) : ""), [html]);
+  const srcDocRef = useRef("");
+  srcDocRef.current = srcDoc;
 
   const postCmd = (cmd: Record<string, unknown>) => {
     iframeRef.current?.contentWindow?.postMessage(cmd, "*");
+  };
+
+  // Backstop for JS-driven navigation (location.href=…, form.submit()): if the
+  // preview ever navigates to a real http(s) URL — i.e. the host app — restore
+  // the artifact. The in-iframe guard handles anchor/form cases without this
+  // flash; this only catches script navigations the guard can't intercept.
+  const onIframeLoad = () => {
+    try {
+      const href = iframeRef.current?.contentWindow?.location.href ?? "";
+      if (/^https?:/i.test(href) && iframeRef.current) {
+        iframeRef.current.srcdoc = srcDocRef.current;
+      }
+    } catch {
+      /* opaque origin — nothing to do */
+    }
   };
 
   useImperativeHandle(ref, () => ({
@@ -138,6 +155,7 @@ export const Canvas = forwardRef<CanvasHandle, Props>(function Canvas(
             ref={iframeRef}
             title="artifact"
             srcDoc={srcDoc}
+            onLoad={onIframeLoad}
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-pointer-lock"
           />
         </div>
