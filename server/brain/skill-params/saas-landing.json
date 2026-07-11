@@ -1,0 +1,6 @@
+{"groups":[
+  {"label":"布局","props":[
+    {"key":"heroDensity","label":"Hero 垂直密度","type":"range","min":48,"max":200,"step":4,"unit":"px","value":96,"var":"--tw-hero-density"},
+    {"key":"sectionGap","label":"区块间距","type":"range","min":48,"max":180,"step":4,"unit":"px","value":96,"var":"--tw-section-gap"}]},
+  {"label":"强调","props":[
+    {"key":"accentColor","label":"强调色","type":"color","value":"#d97757","swatches":["#d97757","#2f6df6","#10b981","#8b5cf6","#191915"],"var":"--tw-accent"}]}]}

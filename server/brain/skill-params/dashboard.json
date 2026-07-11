@@ -1,0 +1,6 @@
+{"groups":[
+  {"label":"布局","props":[
+    {"key":"density","label":"信息密度（内边距）","type":"range","min":8,"max":28,"step":2,"unit":"px","value":16,"var":"--tw-density"},
+    {"key":"radius","label":"圆角","type":"range","min":0,"max":20,"step":1,"unit":"px","value":10,"var":"--tw-radius"}]},
+  {"label":"强调","props":[
+    {"key":"accent","label":"强调色","type":"color","value":"#2f6df6","swatches":["#2f6df6","#10b981","#f59e0b","#ef4444","#8b5cf6"],"var":"--tw-accent"}]}]}

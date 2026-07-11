@@ -1,0 +1,6 @@
+{"groups":[
+  {"label":"布局","props":[
+    {"key":"radius","label":"卡片圆角","type":"range","min":8,"max":32,"step":2,"unit":"px","value":18,"var":"--tw-radius"},
+    {"key":"gap","label":"元素间距","type":"range","min":8,"max":28,"step":2,"unit":"px","value":16,"var":"--tw-gap"}]},
+  {"label":"强调","props":[
+    {"key":"accent","label":"主色","type":"color","value":"#2f6df6","swatches":["#2f6df6","#d97757","#10b981","#8b5cf6","#ef4444"],"var":"--tw-accent"}]}]}

@@ -9,6 +9,7 @@ const BRAIN_DIR = existsSync(join(moduleDir, "brain"))
   : join(moduleDir, "..", "brain");
 const SKILLS_DIR = join(BRAIN_DIR, "skills");
 const SEED_DIR = join(BRAIN_DIR, "skill-seeds"); // starter templates a skill copies from
+const PARAMS_DIR = join(BRAIN_DIR, "skill-params"); // declared tweakable parameters → auto data-vd-props
 
 // The Claude Design system prompt (20 chapters) — the design "brain".
 const SYSTEM_PROMPT = readFileSync(join(BRAIN_DIR, "system-prompt.md"), "utf8");
@@ -21,6 +22,7 @@ export interface Skill {
   craft: string[]; // craft slugs to inject with this skill (frontmatter `craft:`)
   triggers: string[]; // discovery phrases (frontmatter `triggers:`)
   seed?: string; // optional starter HTML the model copies from (skill-seeds/<id>.html)
+  params?: string; // optional data-vd-props block (skill-params/<id>.json) → auto live sliders
 }
 
 // Minimal, zero-dep front-matter parser. Skill files use a FLAT form (no nested
@@ -66,6 +68,7 @@ function loadSkills(): Record<string, Skill> {
     const titleMatch = body.match(/^#\s+(.+)$/m);
     const name = typeof data.name === "string" ? data.name : "";
     const seedFile = join(SEED_DIR, `${id}.html`);
+    const paramsFile = join(PARAMS_DIR, `${id}.json`);
     out[id] = {
       id,
       title: name || (titleMatch ? titleMatch[1].trim() : id),
@@ -73,6 +76,7 @@ function loadSkills(): Record<string, Skill> {
       craft: Array.isArray(data.craft) ? data.craft : [],
       triggers: Array.isArray(data.triggers) ? data.triggers : [],
       ...(existsSync(seedFile) ? { seed: readFileSync(seedFile, "utf8") } : {}),
+      ...(existsSync(paramsFile) ? { params: readFileSync(paramsFile, "utf8").trim() } : {}),
     };
   }
   return out;
@@ -261,6 +265,19 @@ export function buildSystem(
         "```html\n" +
         skill.seed.trim() +
         "\n```";
+    }
+    // 3c. Declared tweakable parameters → the model wires them as data-vd-props so
+    // the host's Tweaks panel shows live sliders automatically (no extra ask).
+    if (skill.params && skill.params.trim()) {
+      system +=
+        `\n\n## This skill's tweakable parameters (wire as live controls)\n\n` +
+        `Include EXACTLY this \`data-vd-props\` block in the document and consume every \`var\` through \`var(--…, fallback)\` in your CSS (fallback = the value shown, so it paints identically before any tweak). This makes the host's Tweaks panel show live sliders for these parameters automatically — do not omit it, do not build your own panel.\n\n` +
+        "```html\n" +
+        `<script type="application/json" data-vd-props>\n` +
+        skill.params.trim() +
+        `\n</scr` +
+        `ipt>\n` +
+        "```";
     }
   }
   return system;

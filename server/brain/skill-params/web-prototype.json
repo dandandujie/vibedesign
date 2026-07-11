@@ -1,0 +1,6 @@
+{"groups":[
+  {"label":"布局","props":[
+    {"key":"maxWidth","label":"内容最大宽度","type":"range","min":720,"max":1440,"step":40,"unit":"px","value":1120,"var":"--tw-maxw"},
+    {"key":"rhythm","label":"垂直节奏","type":"range","min":48,"max":160,"step":4,"unit":"px","value":88,"var":"--tw-rhythm"}]},
+  {"label":"强调","props":[
+    {"key":"accent","label":"强调色","type":"color","value":"#191915","swatches":["#191915","#d97757","#2f6df6","#10b981","#8b5cf6"],"var":"--tw-accent"}]}]}
