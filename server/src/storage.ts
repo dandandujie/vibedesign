@@ -163,8 +163,27 @@ export function listDesignSystems(): DesignSystem[] {
   return [...user, ...builtins];
 }
 
-export function getDesignSystem(id: string): DesignSystem | undefined {
-  return readDS().find((d) => d.id === id) ?? loadBuiltinDesignSystems().find((d) => d.id === id);
+// Strip a leading YAML front-matter block (shared with the builtin loader).
+const stripFm = (s: string) => s.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n+/, "");
+
+export function getDesignSystem(id: string, lang?: string): DesignSystem | undefined {
+  const user = readDS().find((d) => d.id === id);
+  if (user) return user;
+  const builtin = loadBuiltinDesignSystems().find((d) => d.id === id);
+  if (!builtin) return undefined;
+  // Prefer a localized DESIGN-<lang>.md for built-ins when the request is non-English.
+  if (lang && lang !== "en" && id.startsWith("builtin:")) {
+    const brand = id.slice("builtin:".length);
+    const locFile = join(BUILTIN_DS_DIR, brand, `DESIGN-${lang}.md`);
+    if (existsSync(locFile)) {
+      try {
+        return { ...builtin, content: stripFm(readFileSync(locFile, "utf8")) };
+      } catch {
+        /* fall back to the base content */
+      }
+    }
+  }
+  return builtin;
 }
 
 export function saveDesignSystem(ds: DesignSystem): DesignSystem {

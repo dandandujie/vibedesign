@@ -333,12 +333,14 @@ app.post("/api/chat", async (req, res) => {
     skillId,
     designSystemId,
     extraInstruction,
+    lang,
   }: {
     messages: ChatMessage[];
     providerId?: string;
     skillId?: string;
     designSystemId?: string;
     extraInstruction?: string;
+    lang?: string;
   } = req.body;
 
   const pid = providerId || getActiveProviderId();
@@ -369,7 +371,7 @@ app.post("/api/chat", async (req, res) => {
     if (!res.writableEnded) ac.abort();
   });
 
-  const ds = designSystemId ? getDesignSystem(designSystemId) : undefined;
+  const ds = designSystemId ? getDesignSystem(designSystemId, lang) : undefined;
   let system = buildSystem(skillId, ds);
   if (extraInstruction) system += `\n\n---\n\n# Active mode\n\n${extraInstruction}`;
   const streamFn = getStreamFn(provider.format);

@@ -118,6 +118,7 @@ export function streamChat(
     skillId?: string | null;
     designSystemId?: string | null;
     extraInstruction?: string | null;
+    lang?: string; // "zh" | "en" — picks a localized DESIGN-<lang>.md when available
   },
   handlers: StreamHandlers,
 ): () => void {

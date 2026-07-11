@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { t } from "../lib/i18n";
+import { t, getLang } from "../lib/i18n";
 import { ChatMessage, Meta, streamChat, saveDesignSystem } from "../lib/api";
 import { extractArtifact, extractDeliverable, extractForm, extractProps, extractDesignSystemSpec, extractDesignSystemTokens, stripWorkingAttrs, extractLiveSpec, extractFiles } from "../lib/artifact";
 import { LiveArtifact, createLiveArtifact, getLiveArtifact } from "../lib/liveApi";
@@ -159,6 +159,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
         skillId: activeSkill?.skillId ?? null,
         extraInstruction: activeSkill?.extraInstruction ?? null,
         designSystemId: proj?.designSystemId,
+        lang: getLang(),
       },
       {
         onText: (delta) => {
