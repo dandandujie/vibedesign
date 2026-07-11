@@ -1,55 +1,84 @@
 # Anti-AI-slop rules
 
-Concrete, checkable patterns that separate "designed by someone who has
-shipped product" from "default model output." These are the tells a
-designer spots in three seconds. Treat the hard list as regressions, not
-preferences.
+Concrete, checkable rules that distinguish "designed by a human who has
+shipped product" from "default LLM output." Several rules below are
+auto-enforced by the daemon's `lint-artifact` linter — failing an
+enforced rule is not a style preference, it is a regression. The
+rest are guidance for agents and reviewers and are flagged inline as
+"(guidance, not auto-checked)" so the contract with the linter stays
+honest.
 
-## Hard tells — do not ship these
+> Adapted from [refero_skill](https://github.com/referodesign/refero_skill)
+> (MIT), tightened to match Open Design's lint surface.
 
-1. **Default framework indigo as the accent.** The stock Tailwind indigo/violet
-   ramp is the single loudest AI signature: `#6366f1`, `#4f46e5`, `#4338ca`,
-   `#3730a3`, `#818cf8`, `#8b5cf6`, `#7c3aed`, `#a855f7`. If the brief or design
-   system gives an accent, use it. If it does not, pick a considered color with
-   intent — never fall back to these.
-2. **The two-stop "trust me" gradient.** Purple→blue, blue→cyan, indigo→pink
-   washes on a hero. A flat surface with confident typography beats this every
-   time. Reserve gradients for a deliberate, single moment.
-3. **Emoji as UI icons.** `✨ 🚀 🎯 ⚡ 🔥 💡` inside headings, buttons, list
-   markers, or feature tiles. Use monoline SVG (≈1.5–1.8px stroke,
-   `currentColor`) instead.
-4. **Hardcoded system font on display type** when a real typeface is available.
-   Headlines defaulting to `Inter` / `Roboto` / `system-ui` when the brief
-   implies a voice is a missed decision.
-5. **The rounded card with a colored left border.** The canonical "AI dashboard
-   tile." Drop either the radius or the left stripe; do not ship both together
-   as your default card.
-6. **Invented metrics.** "10× faster", "99.9% uptime", "3× more productive" with
-   no source. Pull a real number or use an honestly-labelled placeholder.
-7. **Filler copy.** `lorem ipsum`, "Feature one / two / three", "placeholder
-   text", "sample content." An empty section is a composition problem to solve,
-   not a prompt to invent words.
+## The seven cardinal sins
 
-## Soft tells — fix when you can
+These are the patterns the linter blocks at P0 (must-fix):
 
-- **The stock skeleton**: Hero → Features (3 cards) → Pricing → FAQ → CTA with no
-  variation. Introduce at least one unconventional section (a full-bleed
-  testimonial quote, pricing framed against the status quo, an inline mini-demo).
-- **Placeholder image CDNs** (`unsplash`, `placehold.co`, `picsum`, `placekitten`).
-  Fragile and obvious. Use a real asset or a styled placeholder block.
-- **Token leakage**: many raw hex values scattered outside a `:root` block means
-  the design tokens were not honored.
-- **Accent overuse**: the accent color used on 6+ elements per screen. Cap it at
-  ~2 visible uses per view — scarcity is what makes an accent read as emphasis.
-- **Perfectly symmetric, evenly-dense layout** with no tension. Alternate density
-  (one tight section, one that breathes) so the rhythm reads as intentional.
+1. **Default Tailwind indigo as accent** — exactly `#6366f1`, `#4f46e5`,
+   `#4338ca`, `#3730a3`, `#8b5cf6`, `#7c3aed`, `#a855f7`. The active
+   `DESIGN.md` provides `--accent`; use it. Indigo is the textbook AI
+   tell. (The daemon's `lint-artifact` flags any of these as a solid
+   accent; keep this list in sync with `AI_DEFAULT_INDIGO` in
+   `apps/daemon/src/lint-artifact.ts`.)
+2. **Two-stop "trust" gradient on the hero** — purple→blue, blue→cyan,
+   indigo→pink. A flat surface + intentional type beats this every
+   time.
+3. **Emoji as feature icons** — `✨`, `🚀`, `🎯`, `⚡`, `🔥`, `💡`
+   inside `<h*>`, `<button>`, `<li>`, or `class*="icon"`. Use
+   1.6–1.8px-stroke monoline SVG with `currentColor`.
+4. **Sans-serif on display text when the seed binds a serif** — h1/h2
+   must use `var(--font-display)`, not a hardcoded Inter / Roboto /
+   `system-ui`.
+5. **Rounded card with a colored left-border accent** — the canonical
+   "AI dashboard tile" shape. Drop either the radius or the left
+   border.
+6. **Invented metrics** — "10× faster", "99.9% uptime", "3× more
+   productive". Either pull from a real source or use a labelled
+   placeholder.
+7. **Filler copy** — `lorem ipsum`, `feature one / two / three`,
+   `placeholder text`, `sample content`. An empty section is a design
+   problem to solve with composition, not by inventing words.
+
+## Soft tells (P1 — should fix)
+
+- **Standard "Hero → Features → Pricing → FAQ → CTA" sequence with no
+  variation** *(guidance, not auto-checked)*. This is the AI-template
+  skeleton; introduce at least one unconventional section (testimonial
+  wall as full-bleed quote, pricing as comparison-against-status-quo,
+  an inline mini-product-demo).
+- **External placeholder image CDNs** (`unsplash.com`, `placehold.co`,
+  `placekitten.com`, `picsum.photos`). Fragile and obvious. Use the
+  shipped `.ph-img` placeholder class.
+- **More than ~12 raw hex values outside `:root`.** Tokens were not
+  honoured.
+- **`var(--accent)` used 6+ times in the rendered body.** Cap at 2
+  visible uses per screen.
+
+## Polish tells (P2 — nice to fix)
+
+- **Sections without `data-od-id`** — comment mode can't target them.
+- **Decorative blob / wave SVG backgrounds** *(guidance, not
+  auto-checked)* — meaningless geometry.
+- **Perfect symmetric layout with no visual tension** *(guidance, not
+  auto-checked)* — alternating density (one tight section, one
+  breathing section) reads as intentional.
 
 ## How to add soul without breaking the rules
 
-Aim for roughly **80% proven patterns + 20% one distinctive choice.** Spend the
-20% on: one bold visual move (a type choice, a single color decision, an
-unexpected proportion); voice and microcopy ("Start tracking" over "Get
-started"); one small interaction the user remembers; one detail only someone who
-used the product would add. If an outsider can identify which product a
-screenshot is from, it has soul. If not, it's a template.
-</content>
+Aim for **~80% proven patterns + ~20% distinctive choice**. The 20%
+should live in:
+
+- One bold visual move — a typography choice, a single color decision,
+  an unexpected proportion.
+- Voice and microcopy — a button that says "Start tracking" beats one
+  that says "Get started".
+- One micro-interaction the user will remember — a button press that
+  moves 2px, a number that counts up.
+- One detail that could only have been put there by someone who used
+  the product (a subtle kbd shortcut hint, a status badge with
+  product-specific phrasing).
+
+If a reviewer screenshots the artifact and someone outside the project
+can identify which product it's from — you have soul. If not, you
+shipped a template.

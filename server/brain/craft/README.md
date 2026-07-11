@@ -51,3 +51,10 @@ front-end / product-design field (WCAG contrast ratios, type-scale ratios,
 named UX laws, the well-known "AI slop" tells). This content was authored for
 Vibedesign, informed by open craft references in the community. Extend freely.
 </content>
+
+
+---
+
+The craft modules (design-quality rules injected per skill) are vendored from
+open-design's `craft/` (Apache-2.0 © the Open Design authors) — universal
+typography / color / accessibility / motion / i18n / interaction-state rules.
