@@ -1,3 +1,4 @@
+import { t } from "../lib/i18n";
 import {
   CursorIcon,
   ClickThroughIcon,
@@ -35,8 +36,8 @@ interface Props {
 // Toolbar per Images 5-7/13: select · click-through | text frame rect oval
 // arrow line draw | undo redo — all real tools now.
 export function EditToolbar({ tool, onTool, onUndo, onRedo, canUndo, canRedo }: Props) {
-  const btn = (t: EditTool, icon: JSX.Element, title: string) => (
-    <button className={`et-btn ${tool === t ? "on" : ""}`} title={title} onClick={() => onTool(t)}>
+  const btn = (tool2: EditTool, icon: JSX.Element, title: string) => (
+    <button className={`et-btn ${tool === tool2 ? "on" : ""}`} title={t(title)} onClick={() => onTool(tool2)}>
       {icon}
     </button>
   );
@@ -53,10 +54,10 @@ export function EditToolbar({ tool, onTool, onUndo, onRedo, canUndo, canRedo }: 
       {btn("line", <LineIcon size={15} />, "Line")}
       {btn("draw", <DrawIcon size={15} />, "Draw")}
       <span className="et-grow" />
-      <button className="et-btn" title="Undo" disabled={!canUndo} onClick={onUndo}>
+      <button className="et-btn" title={t("Undo")} disabled={!canUndo} onClick={onUndo}>
         <UndoIcon size={15} />
       </button>
-      <button className="et-btn" title="Redo" disabled={!canRedo} onClick={onRedo}>
+      <button className="et-btn" title={t("Redo")} disabled={!canRedo} onClick={onRedo}>
         <RedoIcon size={15} />
       </button>
     </div>

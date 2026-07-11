@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { t } from "../lib/i18n";
 import { QuestionForm, FormQuestion } from "../lib/artifact";
 
 interface Props {
@@ -37,7 +38,7 @@ export function QuestionFormView({ form, onSubmit }: Props) {
       ))}
       <div className="qform-foot">
         <button className="btn primary" onClick={submit}>
-          Continue
+          {t("Continue")}
         </button>
       </div>
     </div>
@@ -62,7 +63,7 @@ function Question({
       <textarea
         className="qform-text"
         rows={2}
-        placeholder="Your answer..."
+        placeholder={t("Your answer...")}
         value={value === "__other__" ? "" : (value ?? "")}
         onChange={(e) => onPick(e.target.value)}
       />
@@ -94,18 +95,18 @@ function Question({
           })}
       {q.decide && (
         <button className={`qform-chip ${value === DECIDE ? "on" : ""}`} onClick={() => onPick(DECIDE)}>
-          {DECIDE}
+          {t(DECIDE)}
         </button>
       )}
       {q.other && (
         <>
           <button className={`qform-chip ${value === "__other__" ? "on" : ""}`} onClick={() => onPick("__other__")}>
-            Other
+            {t("Other")}
           </button>
           {value === "__other__" && (
             <input
               className="qform-other"
-              placeholder="Other..."
+              placeholder={t("Other...")}
               value={other}
               autoFocus
               onChange={(e) => onOther(e.target.value)}

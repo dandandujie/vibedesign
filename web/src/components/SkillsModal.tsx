@@ -1,4 +1,5 @@
 import { SKILL_GROUPS, SkillEntry } from "../lib/skillCatalog";
+import { t } from "../lib/i18n";
 import { XIcon } from "./icons";
 
 interface Props {
@@ -14,9 +15,9 @@ export function SkillsModal({ onPick, onClose }: Props) {
       <div className="modal skills-modal" onClick={(e) => e.stopPropagation()}>
         <header>
           <div>
-            <h2>Skills</h2>
+            <h2>{t("Skills")}</h2>
             <p className="muted" style={{ margin: "2px 0 0", fontSize: 13.5 }}>
-              Attach a skill to give Claude additional context.
+              {t("Attach a skill to give Claude additional context.")}
             </p>
           </div>
           <button className="iconbtn" onClick={onClose}>

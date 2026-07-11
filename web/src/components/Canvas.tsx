@@ -120,7 +120,7 @@ export const Canvas = forwardRef<CanvasHandle, Props>(function Canvas(
       {!html && !awaitingArtifact && (
         <div className="canvas-empty">
           <div className="inner">
-            <h2>The canvas is empty</h2>
+            <h2>{t("The canvas is empty")}</h2>
             <p>{t("在左边描述你想要的设计——原型、幻灯片、落地页、one-pager。设计会实时出现在这里。")}</p>
           </div>
         </div>

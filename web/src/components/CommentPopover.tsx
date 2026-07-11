@@ -43,7 +43,7 @@ export function CommentPopover({ selected, frameOffset, pinNumber, onAddComment,
       </div>
       <div className="comment-pop" style={{ left: popLeft, top: popTop }}>
         <div className="head">
-          <span>Annotate</span>
+          <span>{t("Annotate")}</span>
           <button className="iconbtn" onClick={onCancel} style={{ padding: "0 2px" }}>
             <XIcon size={13} />
           </button>
@@ -61,7 +61,7 @@ export function CommentPopover({ selected, frameOffset, pinNumber, onAddComment,
         <textarea
           ref={taRef}
           rows={2}
-          placeholder="Describe the issue or suggestion..."
+          placeholder={t("Describe the issue or suggestion...")}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
@@ -92,10 +92,10 @@ export function CommentPopover({ selected, frameOffset, pinNumber, onAddComment,
           </button>
           <span style={{ flex: 1 }} />
           <button className="btn ghost small" disabled={!text.trim()} onClick={() => onAddComment(text.trim())}>
-            Add comment
+            {t("Add comment")}
           </button>
           <button className="btn primary small" disabled={!text.trim() && !images.length} onClick={send}>
-            Send to Claude
+            {t("Send to Claude")}
           </button>
         </div>
       </div>

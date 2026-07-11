@@ -118,23 +118,23 @@ export function PlusMenu({ onAttachFiles, onAttachContext, onOpenSkills, onOpenD
     <div className="plus-menu" ref={(el) => { (ref as React.MutableRefObject<HTMLDivElement | null>).current = el; clampPop(el); }}>
       {view === "root" && (
         <>
-          <div className="pm-label">Files</div>
+          <div className="pm-label">{t("Files")}</div>
           <button className="pm-item" onClick={() => { onAttachFiles(); onClose(); }}>
-            <span className="ic">📎</span> Attach file
+            <span className="ic">📎</span> {t("Attach file")}
           </button>
           <button className="pm-item" onClick={async () => { setProjects(await listProjects()); setView("projects"); }}>
-            <span className="ic">🗂</span> Reference another project
+            <span className="ic">🗂</span> {t("Reference another project")}
           </button>
           <div className="pm-sep" />
-          <div className="pm-label">Code</div>
+          <div className="pm-label">{t("Code")}</div>
           <button className="pm-item" onClick={() => setView("github")}>
-            <span className="ic">⎇</span> Connect GitHub
+            <span className="ic">⎇</span> {t("Connect GitHub")}
           </button>
           <button className="pm-item" onClick={linkLocalCode}>
-            <span className="ic">📁</span> Link local code…
+            <span className="ic">📁</span> {t("Link local code…")}
           </button>
           <div className="pm-sep" />
-          <div className="pm-label">Designs</div>
+          <div className="pm-label">{t("Designs")}</div>
           <input
             ref={figRef}
             type="file"
@@ -153,18 +153,18 @@ export function PlusMenu({ onAttachFiles, onAttachContext, onOpenSkills, onOpenD
             }}
           />
           <button className="pm-item" onClick={() => figRef.current?.click()}>
-            <span className="ic">⬆</span> Upload .fig / .pen file
+            <span className="ic">⬆</span> {t("Upload .fig / .pen file")}
             <span className="pm-tail">{t("本地解析")}</span>
           </button>
           <div className="pm-sep" />
           <button className="pm-item" onClick={() => { onOpenDesignSystem(); onClose(); }}>
-            <span className="ic">🎨</span> Design system
+            <span className="ic">🎨</span> {t("Design system")}
           </button>
           <button className="pm-item" onClick={() => { onOpenSkills(); onClose(); }}>
-            <span className="ic">🛠</span> Skills
+            <span className="ic">🛠</span> {t("Skills")}
           </button>
           <button className="pm-item" disabled title={t("即将支持")}>
-            <span className="ic">⊞</span> Manage connectors
+            <span className="ic">⊞</span> {t("Manage connectors")}
             <span className="pm-tail">{t("即将支持")}</span>
           </button>
           {err && <div className="pm-err">{err}</div>}

@@ -67,34 +67,34 @@ export function SharePopover({ artifactHtml, projectName, exportPng }: Props) {
   return (
     <div className="share-wrap" ref={ref}>
       <button className="share-btn" onClick={() => setOpen((v) => !v)}>
-        ↗ Share
+        ↗ {t("Share")}
       </button>
       {open && (
         <div className="share-pop" ref={clampPop}>
           <div className="access">
-            <span className="sec-label">Who can access</span>
+            <span className="sec-label">{t("Who can access")}</span>
             <select defaultValue="local">
               <option value="local">{t("本机（local）")}</option>
               <option value="lan" disabled>
                 {t("局域网链接（即将支持）")}
               </option>
             </select>
-            <span className="hint">Only you can see this design.</span>
+            <span className="hint">{t("Only you can see this design.")}</span>
           </div>
           <div className="copy-row">
             <button className="btn black small" onClick={copyLink}>
-              {copied ? "✓ Copied" : "🔗 Copy link"}
+              {copied ? `✓ ${t("Copied")}` : `🔗 ${t("Copy link")}`}
             </button>
           </div>
 
-          <span className="sec-label">Export</span>
+          <span className="sec-label">{t("Export")}</span>
           <button className="export-item" onClick={exportPdf} disabled={!artifactHtml}>
             <span className="ic">📄</span>
             <span className="tx">
               <span className="t">PDF</span>
-              <span className="d">Original size</span>
+              <span className="d">{t("Original size")}</span>
             </span>
-            <span className="go">Download</span>
+            <span className="go">{t("Download")}</span>
           </button>
           <button
             className="export-item"
@@ -103,18 +103,18 @@ export function SharePopover({ artifactHtml, projectName, exportPng }: Props) {
           >
             <span className="ic">🌐</span>
             <span className="tx">
-              <span className="t">Standalone HTML</span>
-              <span className="d">One self-contained file</span>
+              <span className="t">{t("Standalone HTML")}</span>
+              <span className="d">{t("One self-contained file")}</span>
             </span>
-            <span className="go">Download</span>
+            <span className="go">{t("Download")}</span>
           </button>
           <button className="export-item" onClick={exportBundle} disabled={!artifactHtml}>
             <span className="ic">🤝</span>
             <span className="tx">
-              <span className="t">Claude Code bundle</span>
-              <span className="d">design.html + README for a coding agent</span>
+              <span className="t">{t("Claude Code bundle")}</span>
+              <span className="d">{t("design.html + README for a coding agent")}</span>
             </span>
-            <span className="go">Download</span>
+            <span className="go">{t("Download")}</span>
           </button>
           <button
             className="export-item"
@@ -140,10 +140,10 @@ export function SharePopover({ artifactHtml, projectName, exportPng }: Props) {
           >
             <span className="ic">📽</span>
             <span className="tx">
-              <span className="t">PowerPoint</span>
+              <span className="t">{t("PowerPoint")}</span>
               <span className="d">{busy === "pptx" ? "生成中…" : "Design as full-slide image"}</span>
             </span>
-            <span className="go">Download</span>
+            <span className="go">{t("Download")}</span>
           </button>
           <button
             className="export-item"
@@ -166,15 +166,15 @@ export function SharePopover({ artifactHtml, projectName, exportPng }: Props) {
           >
             <span className="ic">🖼</span>
             <span className="tx">
-              <span className="t">PNG image</span>
+              <span className="t">{t("PNG image")}</span>
               <span className="d">{busy === "png" ? "生成中…" : "Full design at 2×"}</span>
             </span>
-            <span className="go">Download</span>
+            <span className="go">{t("Download")}</span>
           </button>
           <button className="export-item" disabled>
             <span className="ic">⋯</span>
             <span className="tx">
-              <span className="t">More apps</span>
+              <span className="t">{t("More apps")}</span>
               <span className="d">Canva · Vercel · Figma（即将支持）</span>
             </span>
             <span className="go">›</span>

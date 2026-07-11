@@ -20,7 +20,7 @@ export function CommentsPanel({ comments, onResolve, onDelete, onAddGlobal, onSe
   return (
     <section className="chat">
       <div className="chat-head">
-        <span style={{ fontSize: 12, fontWeight: 600 }}>Comments</span>
+        <span style={{ fontSize: 12, fontWeight: 600 }}>{t("Comments")}</span>
         <div style={{ flex: 1 }} />
         <button className="iconbtn" onClick={onClose} title={t("退出评论模式")}>
           ✕
@@ -30,7 +30,7 @@ export function CommentsPanel({ comments, onResolve, onDelete, onAddGlobal, onSe
       <div className="messages">
         {comments.length === 0 && (
           <p className="muted small" style={{ padding: "8px 2px", lineHeight: 1.6 }}>
-            No comments yet. Leave feedback below, or click an element in the canvas to pin one.
+            {t("No comments yet. Leave feedback below, or click an element in the canvas to pin one.")}
           </p>
         )}
         {comments.map((c, i) => (
@@ -64,7 +64,7 @@ export function CommentsPanel({ comments, onResolve, onDelete, onAddGlobal, onSe
         <div className="box">
           <textarea
             rows={1}
-            placeholder="Add a comment..."
+            placeholder={t("Add a comment...")}
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {

@@ -173,7 +173,7 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
       <header className="home-top">
         <div className="brand">
           <span className="wordmark">Vibedesign</span>
-          <span className="beta">Beta</span>
+          <span className="beta">{t("Beta")}</span>
         </div>
         <div className="spacer" />
         <LangToggle />
@@ -184,7 +184,7 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
       </header>
 
       <main className="home-main">
-        <h1 className="home-title">What will you design today?</h1>
+        <h1 className="home-title">{t("What will you design today?")}</h1>
 
         <div className="home-composer">
           {(images.length > 0 || codebase) && (
@@ -205,7 +205,7 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
           )}
           <textarea
             rows={2}
-            placeholder="Draft a landing page, a prototype, a deck…"
+            placeholder={t("Draft a landing page, a prototype, a deck…")}
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={(e) => {
@@ -233,10 +233,10 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
             <button className="iconbtn" title={t("添加图片")} onClick={() => fileRef.current?.click()}>
               <PlusIcon size={16} />
             </button>
-            <div className="pill-select" title="Design system">
-              <span className="k">Design system</span>
+            <div className="pill-select" title={t("Design system")}>
+              <span className="k">{t("Design system")}</span>
               <select className="v" value={dsId} onChange={(e) => setDsId(e.target.value)}>
-                <option value="">None</option>
+                <option value="">{t("None")}</option>
                 {designSystems.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name}
@@ -244,14 +244,14 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
                 ))}
               </select>
             </div>
-            <div className="pill-select" title="Template">
-              <span className="k">Template</span>
-              <span className="v">None</span>
+            <div className="pill-select" title={t("Template")}>
+              <span className="k">{t("Template")}</span>
+              <span className="v">{t("None")}</span>
             </div>
             <CodebaseMenu current={codebase} onSet={setCodebase} />
             <div className="grow" />
             <div className="pill-select" title="模型（BYOK）">
-              <span className="k">Model</span>
+              <span className="k">{t("Model")}</span>
               <ModelPicker meta={meta} onMetaChanged={onMetaChanged} onOpenSettings={onOpenSettings} align="down" />
             </div>
             <button className="send" disabled={!prompt.trim()} onClick={() => create(prompt.trim())} title={t("开始设计")}>
@@ -261,38 +261,38 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
         </div>
 
         <div className="template-strip">
-          <div className="cap">Start with a template…</div>
+          <div className="cap">{t("Start with a template…")}</div>
           <div className="template-cards">
             {TEMPLATES.map((tp) => (
               <button key={tp.name} className="template-card" onClick={() => create(undefined, tp.name)}>
                 <div className="mini">{tp.art}</div>
-                {tp.name}
+                {t(tp.name)}
               </button>
             ))}
           </div>
           <button className="blank-link" onClick={() => create()}>
-            …or start a blank project →
+            {t("…or start a blank project →")}
           </button>
         </div>
 
         <div className="home-projects">
           <div className="home-tabs">
             <button className={`home-tab ${tab === "projects" ? "on" : ""}`} onClick={() => setTab("projects")}>
-              Projects
+              {t("Projects")}
             </button>
             <button className={`home-tab ${tab === "design-systems" ? "on" : ""}`} onClick={() => setTab("design-systems")}>
-              Design systems
+              {t("Design systems")}
             </button>
             <button className={`home-tab ${tab === "templates" ? "on" : ""}`} onClick={() => setTab("templates")}>
-              Templates
+              {t("Templates")}
             </button>
             <div className="spacer" />
             {tab === "design-systems" && (
               <button className="btn small" onClick={() => setAddDSOpen(true)}>
-                Create design system
+                {t("Create design system")}
               </button>
             )}
-            <input className="search" placeholder="Search" value={query} onChange={(e) => setQuery(e.target.value)} />
+            <input className="search" placeholder={t("Search")} value={query} onChange={(e) => setQuery(e.target.value)} />
           </div>
 
           {tab === "projects" && (
@@ -331,7 +331,7 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
                     {rowMenu === p.id && (
                       <div className="mini-menu" style={{ right: 0 }} ref={clampPop}>
                         <button onClick={() => window.open(`${location.origin}${location.pathname}#/p/${p.id}`, "_blank")}>
-                          <ExternalLink size={14} /> Open in new tab
+                          <ExternalLink size={14} /> {t("Open in new tab")}
                         </button>
                         <button
                           onClick={async () => {
@@ -339,16 +339,16 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
                             setRowMenu(null);
                           }}
                         >
-                          <LinkIcon size={14} /> Copy link
+                          <LinkIcon size={14} /> {t("Copy link")}
                         </button>
                         <button onClick={() => { setRowMenu(null); toggleFavorite(p.id); }}>
                           <StarIcon size={14} filled={p.favorite} /> {p.favorite ? "Remove from favorites" : "Add to favorites"}
                         </button>
                         <button onClick={() => { setRowMenu(null); duplicate(p.id); }}>
-                          <CopyIcon size={14} /> Duplicate
+                          <CopyIcon size={14} /> {t("Duplicate")}
                         </button>
                         <button onClick={() => { setRowMenu(null); setRenaming(p.id); }}>
-                          <PencilIcon size={14} /> Rename
+                          <PencilIcon size={14} /> {t("Rename")}
                         </button>
                         <div className="pm-sep" />
                         <button
@@ -361,7 +361,7 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
                             }
                           }}
                         >
-                          <TrashIcon size={14} /> Delete Project
+                          <TrashIcon size={14} /> {t("Delete Project")}
                         </button>
                       </div>
                     )}
@@ -429,7 +429,7 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
               )}
               {designSystems.length === 0 && !editingDS && (
                 <p className="muted" style={{ fontSize: 13.5 }}>
-                  Design systems teach Claude your brand.
+                  {t("Design systems teach Claude your brand.")}
                 </p>
               )}
             </div>
@@ -440,7 +440,7 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
               {TEMPLATES.map((tp) => (
                 <div key={tp.name} className="project-row" onClick={() => create(undefined, tp.name)}>
                   <span className="thumb" style={{ display: "grid", placeItems: "center", padding: 3 }}>{tp.art}</span>
-                  <span className="name">{tp.name}</span>
+                  <span className="name">{t(tp.name)}</span>
                   <span className="time">{t("模板")}</span>
                 </div>
               ))}
@@ -453,14 +453,14 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
         <div className="modal-backdrop" onClick={() => setAddDSOpen(false)}>
           <div className="modal" style={{ width: 560 }} onClick={(e) => e.stopPropagation()}>
             <header>
-              <h2>Add a design system</h2>
+              <h2>{t("Add a design system")}</h2>
               <button className="iconbtn" onClick={() => setAddDSOpen(false)}>
                 <XIcon size={13} />
               </button>
             </header>
             <div className="content">
               <p className="muted" style={{ margin: 0, fontSize: 14 }}>
-                Design systems teach Claude your brand. How would you like to start?
+                {t("Design systems teach Claude your brand. How would you like to start?")}
               </p>
               <button
                 className="ds-option"
@@ -471,17 +471,17 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
               >
                 <span className="ic blue">⬇</span>
                 <span className="tx">
-                  <span className="t">Create here</span>
-                  <span className="d">Connect to GitHub, upload assets, or describe your brand.</span>
+                  <span className="t">{t("Create here")}</span>
+                  <span className="d">{t("Connect to GitHub, upload assets, or describe your brand.")}</span>
                 </span>
               </button>
               <button className="ds-option" disabled title={t("以后拓展")}>
                 <span className="ic green">⌨</span>
                 <span className="tx">
                   <span className="t">
-                    Create using Claude Code <span className="badge-fidelity">BEST FIDELITY</span>
+                    {t("Create using Claude Code")} <span className="badge-fidelity">BEST FIDELITY</span>
                   </span>
-                  <span className="d">Best fidelity if you have React components.（即将支持）</span>
+                  <span className="d">{t("Best fidelity if you have React components.（即将支持）")}</span>
                 </span>
               </button>
             </div>

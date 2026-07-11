@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { t } from "../lib/i18n";
 import { fetchGithubRepo } from "../lib/api";
 import { newProject, saveProject } from "../lib/projects";
 import { filesToDataUrls } from "../components/ChatPanel";
@@ -104,11 +105,11 @@ export function DsSetupPage() {
     <div className="ds-setup">
       <header className="ds-setup-bar">
         <button className="btn" onClick={() => (step === "confirm" ? setStep("form") : (location.hash = "#/?tab=design-systems"))}>
-          ← Back
+          {t("← Back")}
         </button>
         {step === "form" && (
           <button className="btn primary" disabled={!blurb.trim()} onClick={() => setStep("confirm")}>
-            Continue to generation →
+            {t("Continue to generation →")}
           </button>
         )}
       </header>
@@ -116,11 +117,11 @@ export function DsSetupPage() {
       {step === "form" ? (
         <main className="ds-setup-main">
           <div className="ds-setup-icon">⚭</div>
-          <h1 className="ds-setup-title">Set up your design system</h1>
-          <p className="ds-setup-sub">Tell us about your company and attach any design resources you have.</p>
+          <h1 className="ds-setup-title">{t("Set up your design system")}</h1>
+          <p className="ds-setup-sub">{t("Tell us about your company and attach any design resources you have.")}</p>
 
           <label className="ds-setup-label">
-            Company name and blurb <span className="muted">(or name of design system)</span>
+            {t("Company name and blurb")} <span className="muted">{t("(or name of design system)")}</span>
           </label>
           <textarea
             className="ds-setup-blurb"
@@ -131,15 +132,15 @@ export function DsSetupPage() {
           />
 
           <h2 className="ds-setup-h2">
-            Provide examples of your design system and products <span className="opt">(all optional)</span>
+            {t("Provide examples of your design system and products")} <span className="opt">{t("(all optional)")}</span>
           </h2>
           <p className="muted" style={{ margin: "0 0 12px", fontSize: 14 }}>
-            What works best: code and designs for your design system and your code products.
+            {t("What works best: code and designs for your design system and your code products.")}
           </p>
 
           <div className="ds-setup-card">
             <div className="dsr">
-              <span className="dsr-label">Link code from GitHub</span>
+              <span className="dsr-label">{t("Link code from GitHub")}</span>
               <span className="dsr-value">
                 {repoLabel ? (
                   <span className="ctx-chip">
@@ -162,7 +163,7 @@ export function DsSetupPage() {
               </span>
             </div>
             <div className="dsr">
-              <span className="dsr-label">Link code from your computer</span>
+              <span className="dsr-label">{t("Link code from your computer")}</span>
               <span className="dsr-value">
                 {localLabel ? (
                   <span className="ctx-chip">
@@ -181,7 +182,7 @@ export function DsSetupPage() {
               frontend-focused subfolder.
             </p>
             <div className="dsr">
-              <span className="dsr-label">Upload a .fig / .pen file</span>
+              <span className="dsr-label">{t("Upload a .fig / .pen file")}</span>
               <span className="dsr-value">
                 <input
                   ref={figRef}
@@ -214,9 +215,9 @@ export function DsSetupPage() {
                 )}
               </span>
             </div>
-            <p className="dsr-note">Parsed locally in your browser — never uploaded.</p>
+            <p className="dsr-note">{t("Parsed locally in your browser — never uploaded.")}</p>
             <div className="dsr">
-              <span className="dsr-label">Add fonts, logos and assets</span>
+              <span className="dsr-label">{t("Add fonts, logos and assets")}</span>
               <span className="dsr-value">
                 <input
                   ref={assetRef}
@@ -250,7 +251,7 @@ export function DsSetupPage() {
           </div>
 
           <label className="ds-setup-label" style={{ marginTop: 20 }}>
-            Any other notes?
+            {t("Any other notes?")}
           </label>
           <textarea
             className="ds-setup-blurb"
@@ -263,11 +264,11 @@ export function DsSetupPage() {
         </main>
       ) : (
         <main className="ds-setup-confirm">
-          <h1>It will take a few minutes to generate your design system.</h1>
-          <p className="muted">You can step away. Keep the tab open in the background.</p>
+          <h1>{t("It will take a few minutes to generate your design system.")}</h1>
+          <p className="muted">{t("You can step away. Keep the tab open in the background.")}</p>
           <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 22 }}>
             <button className="btn" onClick={() => setStep("form")}>
-              ← Back
+              {t("← Back")}
             </button>
             <button className="btn primary" onClick={generate}>
               ⚡ Generate

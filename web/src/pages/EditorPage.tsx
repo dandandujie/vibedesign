@@ -116,7 +116,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
   const canvasHtml = liveArtifact ?? editDraft ?? activeVersion?.html ?? null;
   const awaitingArtifact = streaming && !canvasHtml;
   const activeIdx = artifacts.findIndex((a) => a.id === activeVersionId);
-  const fileName = activeVersion ? `${(proj?.name || "Design").slice(0, 14)} · v${activeIdx + 1}` : "No file open";
+  const fileName = activeVersion ? `${(proj?.name || "Design").slice(0, 14)} · v${activeIdx + 1}` : t("No file open");
 
   const pendingForm = !streaming && messages.length > 0 ? extractForm(lastAssistant) : null;
   const tweakGroups = canvasHtml ? extractProps(canvasHtml) : null;
@@ -459,13 +459,13 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
                     (document.querySelector(".side-head .pname") as HTMLInputElement)?.focus();
                   }}
                 >
-                  <PencilIcon size={14} /> Rename
+                  <PencilIcon size={14} /> {t("Rename")}
                 </button>
                 <button onClick={duplicateProject}>
-                  <CopyIcon size={14} /> Duplicate
+                  <CopyIcon size={14} /> {t("Duplicate")}
                 </button>
                 <button className="danger" onClick={removeProject}>
-                  <TrashIcon size={14} /> Delete project
+                  <TrashIcon size={14} /> {t("Delete project")}
                 </button>
               </div>
             )}
@@ -605,7 +605,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
             onClick={() => switchTool("annotate")}
             disabled={!canvasHtml || streaming}
           >
-            ◉ Annotate
+            ◉ {t("Annotate")}
           </button>
           <button
             className={`tool-toggle ${tool === "tweaks" || tool === "edit" ? "on" : ""}`}
@@ -613,18 +613,18 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
             disabled={!canvasHtml || streaming}
             title={tweakGroups ? "调节控件" : "描述想调什么，生成控件"}
           >
-            ⊞ Tweaks
+            ⊞ {t("Tweaks")}
           </button>
           <button
             className={`tool-toggle ${tool === "edit" ? "on" : ""}`}
             onClick={() => switchTool("edit")}
             disabled={!canvasHtml || streaming}
           >
-            ✎ Edit
+            ✎ {t("Edit")}
           </button>
           <div style={{ position: "relative" }}>
             <button className="tool-toggle" onClick={() => setPresentMenu((v) => !v)} disabled={!canvasHtml || streaming}>
-              ▶ Present <ChevronDown size={12} />
+              ▶ {t("Present")} <ChevronDown size={12} />
             </button>
             {presentMenu && (
               <div className="mini-menu" style={{ right: 0 }} ref={clampPop}>
@@ -634,7 +634,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
                     setPresenting("tab");
                   }}
                 >
-                  In this tab
+                  {t("In this tab")}
                 </button>
                 <button
                   onClick={() => {
@@ -642,7 +642,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
                     setPresenting("fullscreen");
                   }}
                 >
-                  Fullscreen
+                  {t("Fullscreen")}
                 </button>
                 <button
                   onClick={() => {
@@ -650,7 +650,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
                     openInNewTab();
                   }}
                 >
-                  New tab
+                  {t("New tab")}
                 </button>
               </div>
             )}
@@ -661,7 +661,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
             exportPng={(sel, scale) => canvasRef.current?.exportPng(sel, scale) ?? Promise.resolve(null)}
           />
           <button className="btn small" onClick={onOpenSettings} title={t("模型服务（BYOK）")}>
-            Model
+            {t("Model")}
           </button>
         </div>
 
@@ -682,7 +682,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
               onClaudeRequest={onClaudeRequest}
             />
           )}
-          {tool === "annotate" && !selected && canvasHtml && <div className="mode-pill">Click to comment</div>}
+          {tool === "annotate" && !selected && canvasHtml && <div className="mode-pill">{t("Click to comment")}</div>}
           {toast && <div className="mode-pill" style={{ background: "var(--accent-black)" }}>{toast}</div>}
         </div>
 

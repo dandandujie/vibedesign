@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight } from "./icons";
+import { t } from "../lib/i18n";
 
 interface Props {
   content: string;
@@ -34,7 +35,7 @@ export function AgentSteps({ content, streaming }: Props) {
         <>
           <button className="steps-group" onClick={() => setOpen((v) => !v)}>
             <span className="spark">✦</span>
-            {done.join(", ")}
+            {done.map((d) => t(d)).join(", ")}
             <span className="chev">{open ? <ChevronDown size={12} style={{ transform: "rotate(180deg)" }} /> : <ChevronDown size={12} />}</span>
           </button>
           {open && (
@@ -42,7 +43,7 @@ export function AgentSteps({ content, streaming }: Props) {
               {done.map((s) => (
                 <div key={s} className="row">
                   <span className="ok">✓</span>
-                  {s}
+                  {t(s)}
                 </div>
               ))}
             </div>
@@ -52,7 +53,7 @@ export function AgentSteps({ content, streaming }: Props) {
       {live && (
         <div className="step-live">
           <span className="spark">✶</span>
-          {live}…
+          {t(live)}…
         </div>
       )}
     </div>

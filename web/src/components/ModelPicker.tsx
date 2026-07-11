@@ -66,7 +66,7 @@ export function ModelPicker({ meta, onMetaChanged, onOpenSettings, align = "up" 
           <>
             <span className="mname">{active.name}</span>
             {active.reasoning && active.effort && (
-              <span className="meffort">{EFFORT_LABEL[active.effort]}</span>
+              <span className="meffort">{t(EFFORT_LABEL[active.effort])}</span>
             )}
           </>
         ) : (
@@ -105,9 +105,9 @@ export function ModelPicker({ meta, onMetaChanged, onOpenSettings, align = "up" 
                 className={`model-item row ${sub === "effort" ? "hl" : ""}`}
                 onClick={() => setSub(sub === "effort" ? null : "effort")}
               >
-                <span className="ti">Effort</span>
+                <span className="ti">{t("Effort")}</span>
                 <span className="tail">
-                  {active.effort ? EFFORT_LABEL[active.effort] : "—"} <ChevronRight size={12} />
+                  {active.effort ? t(EFFORT_LABEL[active.effort]) : "—"} <ChevronRight size={12} />
                 </span>
               </button>
             </>
@@ -118,7 +118,7 @@ export function ModelPicker({ meta, onMetaChanged, onOpenSettings, align = "up" 
               className={`model-item row ${sub === "more" ? "hl" : ""}`}
               onClick={() => setSub(sub === "more" ? null : "more")}
             >
-              <span className="ti">More models</span>
+              <span className="ti">{t("More models")}</span>
               <span className="tail">
                 <ChevronRight size={12} />
               </span>
@@ -140,7 +140,7 @@ export function ModelPicker({ meta, onMetaChanged, onOpenSettings, align = "up" 
             <div className="model-submenu" ref={clampPop}>
               {EFFORTS.map((e) => (
                 <button key={e} className="model-item" onClick={() => setEffort(e)}>
-                  <span className="ti">{EFFORT_LABEL[e]}</span>
+                  <span className="ti">{t(EFFORT_LABEL[e])}</span>
                   {active.effort === e && <span className="check">✓</span>}
                 </button>
               ))}

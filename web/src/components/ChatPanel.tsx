@@ -105,7 +105,7 @@ export function ChatPanel({
       <div className="messages" ref={scrollRef}>
         {messages.length === 0 && (
           <div className="empty">
-            <h2>Describe what you want to create</h2>
+            <h2>{t("Describe what you want to create")}</h2>
             <p>{t("像跟设计师对话一样描述，设计会实时出现在右侧画布。")}</p>
             <div>
               {EXAMPLES.map((e) => (
@@ -151,14 +151,14 @@ export function ChatPanel({
               )}
               {hasForm && (
                 <div className="questions-card">
-                  <span>⊙</span> Claude has some questions {isLastAssistant ? "→（见右侧画布）" : "（已回答）"}
+                  <span>⊙</span> {t("Claude has some questions")} {isLastAssistant ? "→（见右侧画布）" : "（已回答）"}
                 </div>
               )}
               {hasArtifact && !(isLastAssistant && streaming) && (
                 <div className="action-row">
                   <span>👍</span>
                   <span>👎</span>
-                  <span>Edited {artifactName}</span>
+                  <span>{t("Edited")} {artifactName}</span>
                 </div>
               )}
             </div>
@@ -194,7 +194,7 @@ export function ChatPanel({
             ref={taRef}
             value={input}
             rows={1}
-            placeholder={hasProvider ? "Describe what you want to create..." : "先配置模型服务 →"}
+            placeholder={hasProvider ? t("Describe what you want to create...") : t("先配置模型服务 →")}
             onChange={(e) => {
               setInput(e.target.value);
               autoGrow();

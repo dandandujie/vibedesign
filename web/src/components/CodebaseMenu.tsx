@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { t } from "../lib/i18n";
 import { fetchGithubRepo } from "../lib/api";
 import { clampPop } from "../lib/popover";
 
@@ -104,21 +105,21 @@ export function CodebaseMenu({ current, onSet }: Props) {
       {open && (
         <div className="plus-menu" style={{ width: 300 }} ref={clampPop}>
           <div className="pm-label" style={{ fontSize: 14.5, color: "var(--text-primary)", fontWeight: 600 }}>
-            Base designs off what's currently in code?
+            {t("Base designs off what's currently in code?")}
           </div>
           <button className={`pm-item ${!current ? "hl" : ""}`} onClick={() => { onSet(null); setOpen(false); }}>
-            None
+            {t("None")}
           </button>
           <div className="pm-sep" />
-          <div className="pm-label">Local codebase</div>
+          <div className="pm-label">{t("Local codebase")}</div>
           <button className="pm-item" onClick={attachLocal}>
-            <span className="ic">🗂</span> Attach
+            <span className="ic">🗂</span> {t("Attach")}
           </button>
           <div className="pm-sep" />
-          <div className="pm-label">Codebase from GitHub</div>
+          <div className="pm-label">{t("Codebase from GitHub")}</div>
           {!ghInput ? (
             <button className="pm-item" onClick={() => setGhInput(true)}>
-              Connect GitHub
+              {t("Connect GitHub")}
             </button>
           ) : (
             <div style={{ padding: "4px 10px 8px", display: "flex", flexDirection: "column", gap: 8 }}>
