@@ -11,9 +11,37 @@ import { getStreamFn, ProviderConfig } from "./providers/index.js";
 const DATA_DIR = dataDir(join(moduleDir, "..", ".data"));
 const FILE = join(DATA_DIR, "live-artifacts.json");
 
+// A field mapping from the raw source payload into the artifact's data shape.
+// `transform` massages the picked value before it is written (open-design parity):
+//   identity        — write as-is (default)
+//   compact_table   — array of objects → { columns: string[], rows: string[][] }
+//   metric_summary  — array of numbers → { count, min, max, avg, last }
+export type LiveTransform = "identity" | "compact_table" | "metric_summary";
+export interface LiveMapping {
+  from: string;
+  to: string;
+  transform?: LiveTransform;
+}
+
 export type LiveSource =
-  | { type: "http_json"; url: string; mapping?: { from: string; to: string }[] }
-  | { type: "model_prompt"; prompt: string };
+  | { type: "http_json"; url: string; mapping?: LiveMapping[] }
+  | { type: "model_prompt"; prompt: string }
+  // Read a JSON file the user dropped in the sandboxed .data/live-sources/ dir
+  // (no arbitrary filesystem access — name only, .json only, size-capped).
+  | { type: "local_file"; file: string; mapping?: LiveMapping[] }
+  // A curated, read-only public connector (safer than raw http_json: fixed host
+  // + shape). See CONNECTORS below.
+  | { type: "connector"; connector: string; params?: Record<string, string>; mapping?: LiveMapping[] };
+
+// Where the current data came from — shown in the viewer's Provenance tab so a
+// refreshed number is always traceable to its source.
+export interface LiveProvenance {
+  generatedBy: string; // "http_json" | "model_prompt" | "local_file" | "connector:<id>"
+  sources: { label: string; type: string; ref?: string }[];
+  refreshedAt: number;
+  refreshId?: string;
+  note?: string;
+}
 
 export interface LiveArtifact {
   id: string;
@@ -22,6 +50,7 @@ export interface LiveArtifact {
   templateHtml: string; // HTML with {{data.path}} holes
   dataJson: unknown; // current data (authoritative)
   source?: LiveSource; // how to refresh; absent = not refreshable
+  provenance?: LiveProvenance; // where the current data came from
   refreshStatus: "idle" | "running" | "succeeded" | "failed";
   refreshError?: string;
   createdAt: number;
@@ -321,48 +350,145 @@ export function assertSafeHttpUrl(raw: string): URL {
 const HTTP_JSON_TIMEOUT_MS = 30_000;
 const HTTP_JSON_MAX_BYTES = 2 * 1024 * 1024; // cap the response body
 
-async function runHttpJson(src: Extract<LiveSource, { type: "http_json" }>, currentData: unknown): Promise<unknown> {
-  assertSafeHttpUrl(src.url);
+// Massage a picked value before it is written into the data shape.
+function applyTransform(value: unknown, kind: LiveTransform | undefined): unknown {
+  if (!kind || kind === "identity") return value;
+  if (!Array.isArray(value)) return value; // transforms only make sense on arrays
+  if (kind === "compact_table") {
+    const rows = value.filter((r) => r && typeof r === "object" && !Array.isArray(r)) as Record<string, unknown>[];
+    if (!rows.length) return { columns: [], rows: [] };
+    const columns = Array.from(new Set(rows.flatMap((r) => Object.keys(r)))).slice(0, 12);
+    return { columns, rows: rows.slice(0, 100).map((r) => columns.map((c) => String(r[c] ?? ""))) };
+  }
+  if (kind === "metric_summary") {
+    const nums = value.map((n) => Number(n)).filter((n) => Number.isFinite(n));
+    if (!nums.length) return { count: 0 };
+    const sum = nums.reduce((a, b) => a + b, 0);
+    return { count: nums.length, min: Math.min(...nums), max: Math.max(...nums), avg: Math.round((sum / nums.length) * 100) / 100, last: nums[nums.length - 1] };
+  }
+  return value;
+}
+
+// Shared: pick fields from a raw payload into the artifact's data shape,
+// applying per-field transforms. No mapping ⇒ the raw payload becomes the data.
+function applyMapping(raw: unknown, currentData: unknown, mapping: LiveMapping[] | undefined): unknown {
+  if (!mapping || mapping.length === 0) return raw;
+  const out: Record<string, unknown> = JSON.parse(JSON.stringify(currentData ?? {}));
+  for (const m of mapping) {
+    const v = resolvePath(raw, m.from.startsWith(".") ? m.from : "." + m.from);
+    if (v !== undefined) setByPath(out, m.to, applyTransform(v, m.transform)); // keep prior value if source omits it
+  }
+  return out;
+}
+
+// Fetch a public JSON endpoint with the byte cap + timeout applied.
+async function fetchBoundedJson(url: string): Promise<unknown> {
+  assertSafeHttpUrl(url);
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), HTTP_JSON_TIMEOUT_MS);
-  let json: unknown;
   try {
-    const res = await fetch(src.url, { headers: { accept: "application/json" }, redirect: "follow", signal: ac.signal });
+    const res = await fetch(url, { headers: { accept: "application/json" }, redirect: "follow", signal: ac.signal });
     if (!res.ok) throw new Error(`source returned ${res.status}`);
-    // read with a hard byte cap instead of res.json() so a huge body can't OOM us
     const reader = res.body?.getReader();
-    if (!reader) {
-      json = await res.json();
-    } else {
-      const chunks: Uint8Array[] = [];
-      let total = 0;
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (value) {
-          total += value.length;
-          if (total > HTTP_JSON_MAX_BYTES) {
-            await reader.cancel();
-            throw new Error(`source response too large (> ${HTTP_JSON_MAX_BYTES}B)`);
-          }
-          chunks.push(value);
+    if (!reader) return await res.json();
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) {
+        total += value.length;
+        if (total > HTTP_JSON_MAX_BYTES) {
+          await reader.cancel();
+          throw new Error(`source response too large (> ${HTTP_JSON_MAX_BYTES}B)`);
         }
+        chunks.push(value);
       }
-      json = JSON.parse(Buffer.concat(chunks).toString("utf8"));
     }
+    return JSON.parse(Buffer.concat(chunks).toString("utf8"));
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") throw new Error(`source timed out after ${HTTP_JSON_TIMEOUT_MS}ms`);
     throw err;
   } finally {
     clearTimeout(timer);
   }
-  if (!src.mapping || src.mapping.length === 0) return json;
-  const out: Record<string, unknown> = JSON.parse(JSON.stringify(currentData ?? {}));
-  for (const m of src.mapping) {
-    const v = resolvePath(json, m.from.startsWith(".") ? m.from : "." + m.from);
-    if (v !== undefined) setByPath(out, m.to, v); // keep the prior value if the source omits it
-  }
-  return out;
+}
+
+async function runHttpJson(src: Extract<LiveSource, { type: "http_json" }>, currentData: unknown): Promise<unknown> {
+  return applyMapping(await fetchBoundedJson(src.url), currentData, src.mapping);
+}
+
+// ---- local_file: a sandboxed JSON drop-dir ---------------------------------
+// Users drop <name>.json into .data/live-sources/; a live artifact can refresh
+// from it. No arbitrary paths: name is [a-zA-Z0-9_-], .json only, 256KB cap.
+const LIVE_SOURCES_DIR = join(DATA_DIR, "live-sources");
+export function liveSourcesDir(): string {
+  if (!existsSync(LIVE_SOURCES_DIR)) mkdirSync(LIVE_SOURCES_DIR, { recursive: true });
+  return LIVE_SOURCES_DIR;
+}
+export function listLocalSources(): string[] {
+  if (!existsSync(LIVE_SOURCES_DIR)) return [];
+  return readdirSync(LIVE_SOURCES_DIR).filter((f) => f.endsWith(".json"));
+}
+async function runLocalFile(src: Extract<LiveSource, { type: "local_file" }>, currentData: unknown): Promise<unknown> {
+  const name = String(src.file || "").trim();
+  if (!/^[a-zA-Z0-9_-]+\.json$/.test(name)) throw new Error("local_file must be a plain <name>.json in the drop dir");
+  const full = join(liveSourcesDir(), name);
+  if (!existsSync(full)) throw new Error(`local source not found: ${name} (drop it in .data/live-sources/)`);
+  const raw = readFileSync(full, "utf8");
+  if (raw.length > 256 * 1024) throw new Error("local source too large (> 256KB)");
+  return applyMapping(JSON.parse(raw), currentData, src.mapping);
+}
+
+// ---- connectors: curated, read-only public data sources --------------------
+// A safer alternative to raw http_json: fixed host + known shape + read-only
+// safety class. The connector's URL is built from typed params, never freeform.
+// (Vibedesign is a local BYOK tool with no credential vault, so connectors are
+// public/read-only only — no OAuth/write/destructive tiers.)
+export interface ConnectorDef {
+  id: string;
+  label: string;
+  description: string;
+  safety: "read_only"; // only class supported here
+  params: { name: string; label: string; required?: boolean; default?: string }[];
+  buildUrl: (params: Record<string, string>) => string;
+}
+export const CONNECTORS: ConnectorDef[] = [
+  {
+    id: "github_repo",
+    label: "GitHub repo stats",
+    description: "Stars / forks / open issues / description for a public repo.",
+    safety: "read_only",
+    params: [{ name: "repo", label: "owner/name", required: true, default: "facebook/react" }],
+    buildUrl: (p) => `https://api.github.com/repos/${encodeURIComponent(p.repo || "").replace(/%2F/gi, "/")}`,
+  },
+  {
+    id: "hn_top",
+    label: "Hacker News front page",
+    description: "Top stories (ids) from Hacker News.",
+    safety: "read_only",
+    params: [],
+    buildUrl: () => "https://hacker-news.firebaseio.com/v0/topstories.json",
+  },
+  {
+    id: "crypto_price",
+    label: "Crypto spot price",
+    description: "Current USD price for a coin (CoinGecko public API).",
+    safety: "read_only",
+    params: [{ name: "coin", label: "coin id", required: true, default: "bitcoin" }],
+    buildUrl: (p) => `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(p.coin || "bitcoin")}&vs_currencies=usd`,
+  },
+];
+export function listConnectors(): Omit<ConnectorDef, "buildUrl">[] {
+  return CONNECTORS.map(({ buildUrl: _drop, ...rest }) => rest);
+}
+async function runConnector(src: Extract<LiveSource, { type: "connector" }>, currentData: unknown): Promise<unknown> {
+  const def = CONNECTORS.find((c) => c.id === src.connector);
+  if (!def) throw new Error(`unknown connector: ${src.connector}`);
+  const params = src.params ?? {};
+  for (const p of def.params) if (p.required && !params[p.name]) throw new Error(`connector ${def.id} requires param: ${p.name}`);
+  const url = def.buildUrl(params);
+  return applyMapping(await fetchBoundedJson(url), currentData, src.mapping); // buildUrl is fixed-host; still passes the SSRF/size guard
 }
 
 export async function refreshLiveArtifact(id: string, provider?: ProviderConfig): Promise<LiveArtifact> {
@@ -379,10 +505,20 @@ export async function refreshLiveArtifact(id: string, provider?: ProviderConfig)
   appendRefreshLog(id, { refreshId, event: "started", at: now0 });
   try {
     let next: unknown;
-    if (a.source.type === "http_json") next = await runHttpJson(a.source, a.dataJson);
-    else {
-      if (!provider) throw new Error("no model provider configured for model_prompt refresh");
-      next = await runModelPrompt(a.source.prompt, a.dataJson, provider);
+    switch (a.source.type) {
+      case "http_json":
+        next = await runHttpJson(a.source, a.dataJson);
+        break;
+      case "local_file":
+        next = await runLocalFile(a.source, a.dataJson);
+        break;
+      case "connector":
+        next = await runConnector(a.source, a.dataJson);
+        break;
+      case "model_prompt":
+        if (!provider) throw new Error("no model provider configured for model_prompt refresh");
+        next = await runModelPrompt(a.source.prompt, a.dataJson, provider);
+        break;
     }
     // all-or-nothing: bound the (model/network-supplied) data, then only commit
     // if it renders cleanly.
@@ -390,6 +526,7 @@ export async function refreshLiveArtifact(id: string, provider?: ProviderConfig)
     renderLiveHtml(a.templateHtml, next);
     writeSnapshot(id, refreshId, next); // committed snapshot (rollback target)
     a.dataJson = next;
+    a.provenance = sourceProvenance(a.source, refreshId);
     a.refreshStatus = "succeeded";
     a.lastRefreshedAt = Date.now();
     saveLiveArtifact(a);
@@ -428,9 +565,29 @@ function dataSummary(data: unknown): string {
   return String(data).slice(0, 60);
 }
 
+// Build a provenance record describing where a refresh's data came from.
+function sourceProvenance(source: LiveSource, refreshId: string): LiveProvenance {
+  const at = Date.now();
+  switch (source.type) {
+    case "http_json":
+      return { generatedBy: "http_json", sources: [{ label: new URL(source.url).host, type: "http_json", ref: source.url }], refreshedAt: at, refreshId };
+    case "local_file":
+      return { generatedBy: "local_file", sources: [{ label: source.file, type: "local_file", ref: source.file }], refreshedAt: at, refreshId };
+    case "connector": {
+      const def = CONNECTORS.find((c) => c.id === source.connector);
+      return { generatedBy: `connector:${source.connector}`, sources: [{ label: def?.label ?? source.connector, type: "connector", ref: source.connector }], refreshedAt: at, refreshId };
+    }
+    case "model_prompt":
+      return { generatedBy: "model_prompt", sources: [{ label: "model-generated", type: "model_prompt" }], refreshedAt: at, refreshId, note: "values synthesized by the model" };
+  }
+}
+
 // Record the creation baseline: snapshot the initial data as refresh-000000
 // (so the user can always roll back to the original) and log a 'created' event.
 export function initLiveArtifactAudit(a: LiveArtifact): void {
   writeSnapshot(a.id, "refresh-000000", a.dataJson);
   appendRefreshLog(a.id, { refreshId: "refresh-000000", event: "created", at: a.createdAt, summary: dataSummary(a.dataJson) });
+  // baseline provenance: the initial values, before any refresh
+  a.provenance = { generatedBy: "initial", sources: [{ label: "initial values", type: "seed" }], refreshedAt: a.createdAt, refreshId: "refresh-000000" };
+  saveLiveArtifact(a);
 }

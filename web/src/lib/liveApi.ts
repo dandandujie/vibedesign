@@ -1,5 +1,13 @@
 import { LiveSourceSpec } from "./artifact";
 
+export interface LiveProvenance {
+  generatedBy: string;
+  sources: { label: string; type: string; ref?: string }[];
+  refreshedAt: number;
+  refreshId?: string;
+  note?: string;
+}
+
 export interface LiveArtifact {
   id: string;
   projectId: string;
@@ -7,6 +15,7 @@ export interface LiveArtifact {
   templateHtml: string;
   dataJson: unknown;
   source?: LiveSourceSpec;
+  provenance?: LiveProvenance;
   refreshStatus: "idle" | "running" | "succeeded" | "failed";
   refreshError?: string;
   createdAt: number;

@@ -15,7 +15,7 @@ interface Props {
   onChanged: (updated: LiveArtifact) => void;
 }
 
-type Tab = "preview" | "data" | "source" | "history";
+type Tab = "preview" | "data" | "source" | "provenance" | "history";
 
 // Live Artifacts (advanced): renders the server-composited preview, refreshes
 // the data layer (locked + snapshotted + audited server-side), and shows the
@@ -77,7 +77,7 @@ export function LiveArtifactViewer({ live, providerId, onChanged }: Props) {
         <span className="live-badge">◎ Live</span>
         <span className="live-title">{live.title}</span>
         <div className="live-tabs">
-          {([["preview", "预览"], ["data", "Data"], ["source", "来源"], ["history", "刷新历史"]] as [Tab, string][]).map(
+          {([["preview", "预览"], ["data", "Data"], ["source", "来源"], ["provenance", "溯源"], ["history", "刷新历史"]] as [Tab, string][]).map(
             ([tb, label]) => (
               <button key={tb} className={`live-tab ${tab === tb ? "on" : ""}`} onClick={() => setTab(tb)}>
                 {t(label)}
@@ -107,6 +107,28 @@ export function LiveArtifactViewer({ live, providerId, onChanged }: Props) {
         {tab === "data" && <pre className="live-json">{JSON.stringify(live.dataJson, null, 2)}</pre>}
         {tab === "source" && (
           <pre className="live-json">{live.source ? JSON.stringify(live.source, null, 2) : t("此 Live artifact 没有配置刷新源。")}</pre>
+        )}
+        {tab === "provenance" && (
+          <div className="live-json" style={{ display: "block" }}>
+            {live.provenance ? (
+              <>
+                <p><strong>{t("数据由此产生")}：</strong>{live.provenance.generatedBy}</p>
+                <p><strong>{t("刷新于")}：</strong>{new Date(live.provenance.refreshedAt).toLocaleString()}{live.provenance.refreshId ? `（${live.provenance.refreshId}）` : ""}</p>
+                <p><strong>{t("来源")}：</strong></p>
+                <ul style={{ margin: "4px 0 0", paddingLeft: 20 }}>
+                  {live.provenance.sources.map((s, i) => (
+                    <li key={i}>
+                      <span className="live-log-ev">{s.type}</span> {s.label}
+                      {s.ref ? <span className="muted"> — {s.ref}</span> : null}
+                    </li>
+                  ))}
+                </ul>
+                {live.provenance.note && <p className="muted" style={{ marginTop: 8 }}>{live.provenance.note}</p>}
+              </>
+            ) : (
+              t("暂无溯源信息（刷新一次后生成）。")
+            )}
+          </div>
         )}
         {tab === "history" && (
           <div className="live-history">

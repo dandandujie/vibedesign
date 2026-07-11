@@ -198,9 +198,12 @@ export function stripForm(text: string): string {
 
 // ---- Live artifact spec block (```vdlive) -----------------------------------
 
+export type LiveMappingSpec = { from: string; to: string; transform?: "identity" | "compact_table" | "metric_summary" };
 export type LiveSourceSpec =
-  | { type: "http_json"; url: string; mapping?: { from: string; to: string }[] }
-  | { type: "model_prompt"; prompt: string };
+  | { type: "http_json"; url: string; mapping?: LiveMappingSpec[] }
+  | { type: "model_prompt"; prompt: string }
+  | { type: "local_file"; file: string; mapping?: LiveMappingSpec[] }
+  | { type: "connector"; connector: string; params?: Record<string, string>; mapping?: LiveMappingSpec[] };
 
 export interface LiveSpec {
   title: string;

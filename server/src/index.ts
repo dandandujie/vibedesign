@@ -37,6 +37,8 @@ import {
   renderLiveHtml,
   assertBoundedJson,
   assertSafeHttpUrl,
+  listConnectors,
+  listLocalSources,
   LiveArtifact,
 } from "./liveArtifacts.js";
 import { renderMotionVideo, MotionRenderOpts } from "./motionRender.js";
@@ -207,6 +209,10 @@ app.post("/api/live-artifacts", (req, res) => {
   initLiveArtifactAudit(saved); // baseline snapshot + 'created' audit entry
   res.json(saved);
 });
+
+// Curated read-only connectors + sandboxed local JSON drop-sources (for the UI).
+app.get("/api/connectors", (_req, res) => res.json(listConnectors()));
+app.get("/api/live-sources", (_req, res) => res.json(listLocalSources()));
 
 app.get("/api/live-artifacts/:id/refreshes", (req, res) => {
   if (!getLiveArtifact(req.params.id)) return res.status(404).json({ error: "not found" });
