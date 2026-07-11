@@ -252,10 +252,110 @@ async function runModelPrompt(prompt: string, currentData: unknown, provider: Pr
   return extractJson(acc);
 }
 
+// ---- Data hardening (bounded JSON + safe fetch) ----------------------------
+// Refresh data is model- or network-supplied, so bound it before it is ever
+// persisted or rendered: cap shape/size and reject credential-shaped keys.
+const JSON_LIMITS = { maxDepth: 8, maxObjectKeys: 200, maxArrayLength: 1000, maxString: 32 * 1024, maxSerialized: 512 * 1024 };
+const FORBIDDEN_JSON_KEYS = new Set([
+  "__proto__", "prototype", "constructor",
+  "authorization", "cookie", "cookies", "token", "accesstoken", "refreshtoken",
+  "secret", "apikey", "api_key", "password", "passwd", "credential", "credentials", "privatekey", "private_key",
+]);
+
+export function assertBoundedJson(data: unknown, where = "data"): void {
+  const serialized = JSON.stringify(data ?? null);
+  if (serialized.length > JSON_LIMITS.maxSerialized) {
+    throw new Error(`${where} too large (${serialized.length}B > ${JSON_LIMITS.maxSerialized}B)`);
+  }
+  const walk = (v: unknown, depth: number): void => {
+    if (depth > JSON_LIMITS.maxDepth) throw new Error(`${where} nested too deep (> ${JSON_LIMITS.maxDepth})`);
+    if (typeof v === "string") {
+      if (v.length > JSON_LIMITS.maxString) throw new Error(`${where} string too long (> ${JSON_LIMITS.maxString})`);
+      return;
+    }
+    if (Array.isArray(v)) {
+      if (v.length > JSON_LIMITS.maxArrayLength) throw new Error(`${where} array too long (> ${JSON_LIMITS.maxArrayLength})`);
+      for (const item of v) walk(item, depth + 1);
+      return;
+    }
+    if (v && typeof v === "object") {
+      const keys = Object.keys(v);
+      if (keys.length > JSON_LIMITS.maxObjectKeys) throw new Error(`${where} object has too many keys (> ${JSON_LIMITS.maxObjectKeys})`);
+      for (const k of keys) {
+        if (FORBIDDEN_JSON_KEYS.has(k.toLowerCase())) throw new Error(`${where} contains a forbidden key: ${k}`);
+        walk((v as Record<string, unknown>)[k], depth + 1);
+      }
+    }
+  };
+  walk(data, 0);
+}
+
+// Block non-http(s) schemes and private/loopback/link-local hosts so a
+// model-generated refresh URL can't be turned into an SSRF probe.
+export function assertSafeHttpUrl(raw: string): URL {
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    throw new Error("refresh source url is not a valid URL");
+  }
+  if (u.protocol !== "http:" && u.protocol !== "https:") throw new Error("refresh source url must be http(s)");
+  const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  const blocked =
+    host === "localhost" ||
+    host.endsWith(".localhost") ||
+    host.endsWith(".internal") ||
+    host.endsWith(".local") ||
+    host === "0.0.0.0" ||
+    host === "::1" ||
+    /^127\./.test(host) ||
+    /^10\./.test(host) ||
+    /^192\.168\./.test(host) ||
+    /^169\.254\./.test(host) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host) ||
+    /^(0|fc|fd)[0-9a-f]*:/i.test(host); // ULA / unspecified IPv6
+  if (blocked) throw new Error(`refresh source url points at a private/loopback host (${host})`);
+  return u;
+}
+
+const HTTP_JSON_TIMEOUT_MS = 30_000;
+const HTTP_JSON_MAX_BYTES = 2 * 1024 * 1024; // cap the response body
+
 async function runHttpJson(src: Extract<LiveSource, { type: "http_json" }>, currentData: unknown): Promise<unknown> {
-  const res = await fetch(src.url, { headers: { accept: "application/json" } });
-  if (!res.ok) throw new Error(`source returned ${res.status}`);
-  const json = await res.json();
+  assertSafeHttpUrl(src.url);
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), HTTP_JSON_TIMEOUT_MS);
+  let json: unknown;
+  try {
+    const res = await fetch(src.url, { headers: { accept: "application/json" }, redirect: "follow", signal: ac.signal });
+    if (!res.ok) throw new Error(`source returned ${res.status}`);
+    // read with a hard byte cap instead of res.json() so a huge body can't OOM us
+    const reader = res.body?.getReader();
+    if (!reader) {
+      json = await res.json();
+    } else {
+      const chunks: Uint8Array[] = [];
+      let total = 0;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) {
+          total += value.length;
+          if (total > HTTP_JSON_MAX_BYTES) {
+            await reader.cancel();
+            throw new Error(`source response too large (> ${HTTP_JSON_MAX_BYTES}B)`);
+          }
+          chunks.push(value);
+        }
+      }
+      json = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    }
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") throw new Error(`source timed out after ${HTTP_JSON_TIMEOUT_MS}ms`);
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
   if (!src.mapping || src.mapping.length === 0) return json;
   const out: Record<string, unknown> = JSON.parse(JSON.stringify(currentData ?? {}));
   for (const m of src.mapping) {
@@ -284,7 +384,9 @@ export async function refreshLiveArtifact(id: string, provider?: ProviderConfig)
       if (!provider) throw new Error("no model provider configured for model_prompt refresh");
       next = await runModelPrompt(a.source.prompt, a.dataJson, provider);
     }
-    // all-or-nothing: only commit if the new data renders cleanly
+    // all-or-nothing: bound the (model/network-supplied) data, then only commit
+    // if it renders cleanly.
+    assertBoundedJson(next, "refreshed data");
     renderLiveHtml(a.templateHtml, next);
     writeSnapshot(id, refreshId, next); // committed snapshot (rollback target)
     a.dataJson = next;

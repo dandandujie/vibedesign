@@ -35,6 +35,8 @@ import {
   recoverStaleLiveRefreshes,
   initLiveArtifactAudit,
   renderLiveHtml,
+  assertBoundedJson,
+  assertSafeHttpUrl,
   LiveArtifact,
 } from "./liveArtifacts.js";
 import { renderMotionVideo, MotionRenderOpts } from "./motionRender.js";
@@ -195,6 +197,8 @@ app.post("/api/live-artifacts", (req, res) => {
     updatedAt: now,
   };
   try {
+    assertBoundedJson(a.dataJson, "initial data"); // cap shape/size + reject credential keys
+    if (a.source?.type === "http_json") assertSafeHttpUrl(a.source.url); // fail fast on unsafe URL
     renderLiveHtml(a.templateHtml, a.dataJson); // validate before persisting
   } catch (err) {
     return res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
