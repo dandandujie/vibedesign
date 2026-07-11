@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { ChatMessage } from "./providers/index.js";
 import { moduleDir, dataDir } from "./paths.js";
@@ -6,6 +6,11 @@ import { moduleDir, dataDir } from "./paths.js";
 const DATA_DIR = dataDir(join(moduleDir, "..", ".data"));
 const PROJECTS_FILE = join(DATA_DIR, "projects.json");
 const DS_FILE = join(DATA_DIR, "design-systems.json");
+// Bundled read-only design systems (DESIGN.md files). dev: server/src → ../brain
+// ; bundled: server/dist → ./brain (copied by build.mjs alongside skills/craft).
+const BUILTIN_DS_DIR = existsSync(join(moduleDir, "brain", "design-systems"))
+  ? join(moduleDir, "brain", "design-systems")
+  : join(moduleDir, "..", "brain", "design-systems");
 
 export interface ArtifactVersion {
   id: string;
@@ -81,7 +86,47 @@ export interface DesignSystem {
   content: string; // prose spec (the 9-section DESIGN.md), injected as intent/voice
   tokensCss?: string; // optional machine-readable :root {} token contract (pasted verbatim)
   category?: string; // optional grouping label
+  builtin?: boolean; // bundled read-only preset (from awesome-design-md)
   updatedAt: number;
+}
+
+// Prettify a brand slug into a display name: "linear.app" → "Linear.app",
+// "bmw-m" → "Bmw M".
+function prettyBrand(slug: string): string {
+  return slug
+    .split(/[-_]/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+// Bundled DESIGN.md presets. Cached after first read (files never change at
+// runtime). ids are prefixed so they can't collide with user design systems.
+let builtinCache: DesignSystem[] | null = null;
+function loadBuiltinDesignSystems(): DesignSystem[] {
+  if (builtinCache) return builtinCache;
+  const out: DesignSystem[] = [];
+  try {
+    for (const brand of readdirSync(BUILTIN_DS_DIR)) {
+      const file = join(BUILTIN_DS_DIR, brand, "DESIGN.md");
+      if (!existsSync(file)) continue;
+      // drop the leading YAML front-matter (version/name/description metadata)
+      // so both the injected content and the card preview start at the spec.
+      const raw = readFileSync(file, "utf8").replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n+/, "");
+      out.push({
+        id: `builtin:${brand}`,
+        name: prettyBrand(brand),
+        content: raw,
+        category: "内置 · awesome-design-md",
+        builtin: true,
+        updatedAt: 0,
+      });
+    }
+  } catch {
+    /* dir missing — no built-ins */
+  }
+  out.sort((a, b) => a.name.localeCompare(b.name));
+  builtinCache = out;
+  return out;
 }
 
 function readDS(): DesignSystem[] {
@@ -100,11 +145,16 @@ function writeDS(list: DesignSystem[]) {
 }
 
 export function listDesignSystems(): DesignSystem[] {
-  return readDS().sort((a, b) => b.updatedAt - a.updatedAt);
+  const user = readDS().sort((a, b) => b.updatedAt - a.updatedAt);
+  const userIds = new Set(user.map((d) => d.id));
+  // user design systems first (most recent), then bundled presets (excluding
+  // any a user copy has shadowed by id)
+  const builtins = loadBuiltinDesignSystems().filter((d) => !userIds.has(d.id));
+  return [...user, ...builtins];
 }
 
 export function getDesignSystem(id: string): DesignSystem | undefined {
-  return readDS().find((d) => d.id === id);
+  return readDS().find((d) => d.id === id) ?? loadBuiltinDesignSystems().find((d) => d.id === id);
 }
 
 export function saveDesignSystem(ds: DesignSystem): DesignSystem {

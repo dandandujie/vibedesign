@@ -66,6 +66,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [drawAnnotate, setDrawAnnotate] = useState(false); // visual-annotation draw mode
   const [liveArt, setLiveArt] = useState<LiveArtifact | null>(null); // active Live artifact
+  const [device, setDevice] = useState<"web" | "mobile" | "app">("web"); // prototype viewport
 
   const canvasRef = useRef<CanvasHandle>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -741,7 +742,25 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
             </span>
           )}
           <div className="spacer" />
-          <span className="zoom">100%</span>
+          <div className="device-switch" role="group" aria-label={t("预览设备")}>
+            {(
+              [
+                ["web", "▭", "Web（桌面）"],
+                ["mobile", "▯", "移动端"],
+                ["app", "▤", "移动端应用"],
+              ] as ["web" | "mobile" | "app", string, string][]
+            ).map(([id, ic, label]) => (
+              <button
+                key={id}
+                className={`device-btn ${device === id ? "on" : ""}`}
+                title={t(label)}
+                disabled={!canvasHtml || streaming}
+                onClick={() => setDevice(id)}
+              >
+                {ic}
+              </button>
+            ))}
+          </div>
           <button
             className={`tool-toggle ${tool === "annotate" ? "on" : ""}`}
             onClick={() => switchTool("annotate")}
@@ -825,7 +844,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
           </button>
         </div>
 
-        <div className="canvas-stage">
+        <div className={`canvas-stage device-${device}`}>
           {liveArt && !streaming ? (
             <LiveArtifactViewer live={liveArt} providerId={meta?.activeProviderId} onChanged={setLiveArt} />
           ) : pendingForm ? (
@@ -851,6 +870,33 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
           {tool === "annotate" && !selected && canvasHtml && <div className="mode-pill">{t("Click to comment")}</div>}
           {toast && <div className="mode-pill" style={{ background: "var(--accent-black)" }}>{toast}</div>}
         </div>
+
+        {/* mobile-app shell: status bar + home indicator over the phone frame (decorative, click-through) */}
+        {device === "app" &&
+          canvasHtml &&
+          !streaming &&
+          (() => {
+            const stage = stageRef.current;
+            const frame = stage?.querySelector(".canvas-frame") as HTMLElement | null;
+            if (!stage || !frame) return null;
+            const fa = frame.getBoundingClientRect();
+            const sa = stage.getBoundingClientRect();
+            const left = fa.left - sa.left;
+            const top = fa.top - sa.top;
+            return (
+              <>
+                <div className="app-statusbar" style={{ left, top, width: fa.width }}>
+                  <span className="sb-time">9:41</span>
+                  <span className="sb-icons">
+                    <span className="sb-signal" />
+                    <span>5G</span>
+                    <span className="sb-batt" />
+                  </span>
+                </div>
+                <div className="app-home-indicator" style={{ left: left + fa.width / 2, top: top + fa.height - 10 }} />
+              </>
+            );
+          })()}
 
         {tool === "tweaks" &&
           !streaming &&

@@ -573,6 +573,118 @@ code,
   opacity: 0.45;
   transition: opacity 0.2s ease;
 }
+
+/* ---- prototype device views (web / mobile / mobile-app) ------------------- */
+/* Width-clamp only, NO transform scale — the artifact reflows at the real 390px
+   so its @media / vw units resolve correctly, and host overlays (pins, inspect)
+   stay 1:1 with zero math changes. */
+.device-switch {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--bg-hover, #f0ede8);
+}
+.device-btn {
+  width: 30px;
+  height: 26px;
+  border-radius: 6px;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--text-secondary, #6b6b6b);
+}
+.device-btn.on {
+  background: var(--bg-surface, #fff);
+  color: var(--text-primary, #191915);
+  box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.12));
+}
+.device-btn:disabled {
+  opacity: 0.4;
+}
+.canvas-stage.device-mobile,
+.canvas-stage.device-app {
+  display: flex;
+  justify-content: center;
+  padding: 22px;
+  background: repeating-conic-gradient(var(--bg-surface, #f5f3ef) 0 25%, transparent 0 50%) 0 0 / 22px 22px,
+    var(--bg-canvas, #eceae4);
+}
+.canvas-stage.device-mobile .canvas-frame,
+.canvas-stage.device-app .canvas-frame {
+  flex: 0 0 390px;
+  width: 390px;
+  height: auto;
+  align-self: stretch;
+  border-radius: 30px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+  background: #fff;
+}
+/* mobile-app: phone status bar + home indicator drawn over the frame */
+.app-statusbar {
+  position: absolute;
+  z-index: 12;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px 0 26px;
+  font-size: 13.5px;
+  font-weight: 650;
+  color: #0b0b0e;
+  pointer-events: none;
+  border-radius: 30px 30px 0 0;
+}
+.app-statusbar .sb-time {
+  font-variant-numeric: tabular-nums;
+}
+.app-statusbar .sb-icons {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+}
+.sb-signal {
+  width: 17px;
+  height: 11px;
+  background: linear-gradient(to top, #0b0b0e 0 100%);
+  clip-path: polygon(0 70%, 22% 70%, 22% 45%, 48% 45%, 48% 20%, 74% 20%, 74% 0, 100% 0, 100% 100%, 0 100%);
+}
+.sb-batt {
+  width: 24px;
+  height: 12px;
+  border: 1px solid #0b0b0e;
+  border-radius: 3px;
+  position: relative;
+}
+.sb-batt::before {
+  content: "";
+  position: absolute;
+  inset: 1.5px;
+  right: 6px;
+  background: #0b0b0e;
+  border-radius: 1px;
+}
+.sb-batt::after {
+  content: "";
+  position: absolute;
+  right: -3px;
+  top: 3.5px;
+  width: 2px;
+  height: 5px;
+  background: #0b0b0e;
+  border-radius: 0 1px 1px 0;
+}
+.app-home-indicator {
+  position: absolute;
+  z-index: 12;
+  transform: translateX(-50%);
+  width: 130px;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.42);
+  pointer-events: none;
+}
 .canvas-empty {
   position: absolute;
   inset: 0;
@@ -1621,7 +1733,15 @@ code,
 }
 .ds-head .name {
   font-weight: 600;
-  font-size: 14px;
+  font-size: 14.5px;
+}
+.ds-builtin-badge {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary, #666);
+  background: var(--bg-hover, #f0ede8);
+  padding: 1px 7px;
+  border-radius: 999px;
 }
 .ds-head .spacer {
   flex: 1;

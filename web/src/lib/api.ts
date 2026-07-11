@@ -51,6 +51,7 @@ export interface DesignSystem {
   content: string;
   tokensCss?: string; // optional :root {} token contract, pasted verbatim into artifacts
   category?: string;
+  builtin?: boolean; // bundled read-only preset (from awesome-design-md)
   updatedAt: number;
 }
 

@@ -377,20 +377,43 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
                 <div key={d.id} className="ds-card">
                   <div className="ds-head">
                     <span className="name">{d.name}</span>
+                    {d.builtin && <span className="ds-builtin-badge">{t("内置")}</span>}
                     <span className="spacer" />
-                    <button className="btn ghost small" onClick={() => setEditingDS({ ...d })}>
-                      {t("编辑")}
-                    </button>
-                    <button
-                      className="btn ghost small"
-                      onClick={async () => {
-                        await deleteDesignSystem(d.id);
-                        if (dsId === d.id) setDsId("");
-                        refresh();
-                      }}
-                    >
-                      {t("删除")}
-                    </button>
+                    {d.builtin ? (
+                      <button
+                        className="btn ghost small"
+                        title={t("复制一份到你的库以便编辑")}
+                        onClick={async () => {
+                          await saveDesignSystem({
+                            id: crypto.randomUUID().slice(0, 8),
+                            name: `${d.name} 副本`,
+                            content: d.content,
+                            tokensCss: d.tokensCss,
+                            category: d.category,
+                            updatedAt: 0,
+                          });
+                          refresh();
+                        }}
+                      >
+                        {t("复制为可编辑")}
+                      </button>
+                    ) : (
+                      <>
+                        <button className="btn ghost small" onClick={() => setEditingDS({ ...d })}>
+                          {t("编辑")}
+                        </button>
+                        <button
+                          className="btn ghost small"
+                          onClick={async () => {
+                            await deleteDesignSystem(d.id);
+                            if (dsId === d.id) setDsId("");
+                            refresh();
+                          }}
+                        >
+                          {t("删除")}
+                        </button>
+                      </>
+                    )}
                   </div>
                   <p className="ds-preview">{d.content.slice(0, 160)}</p>
                 </div>
