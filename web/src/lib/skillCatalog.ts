@@ -51,6 +51,47 @@ export const SKILL_GROUPS: SkillGroup[] = [
     ],
   },
   {
+    label: "模板 · 原型 / 页面",
+    icon: "▤",
+    entries: [
+      { title: "Web prototype", desc: "通用桌面网页（landing/docs/官网）", skillId: "web-prototype" },
+      { title: "SaaS landing", desc: "hero / features / proof / pricing / CTA", skillId: "saas-landing" },
+      { title: "Dashboard", desc: "后台 / 数据看板（侧栏 + KPI + 图表）", skillId: "dashboard" },
+      { title: "Mobile app", desc: "单屏移动 App（配「移动端应用」设备视图）", skillId: "mobile-app" },
+      { title: "Mobile onboarding", desc: "三屏移动引导流", skillId: "mobile-onboarding" },
+    ],
+  },
+  {
+    label: "模板 · 营销物料",
+    icon: "◆",
+    entries: [
+      { title: "Social carousel", desc: "3 卡方形轮播（标题连成一句）", skillId: "social-carousel" },
+      { title: "Email marketing", desc: "品牌产品发布邮件", skillId: "email-marketing" },
+      { title: "Magazine poster", desc: "编辑风海报 / 报纸版式", skillId: "magazine-poster" },
+      { title: "Motion frames", desc: "循环 CSS 动效 hero（可导出视频）", skillId: "motion-frames" },
+      { title: "Sprite animation", desc: "像素 / 复古动画讲解帧", skillId: "sprite-animation" },
+    ],
+  },
+  {
+    label: "模板 · 文档 / 工作",
+    icon: "▦",
+    entries: [
+      { title: "PM spec", desc: "产品需求文档 / PRD", skillId: "pm-spec" },
+      { title: "Team OKRs", desc: "OKR 追踪 scorecard", skillId: "team-okrs" },
+      { title: "Eng runbook", desc: "工程 / 运维 runbook", skillId: "eng-runbook" },
+      { title: "Finance report", desc: "财务报告（KPI + 图表 + P&L）", skillId: "finance-report" },
+      { title: "HR onboarding", desc: "新人入职计划（30/60/90）", skillId: "hr-onboarding" },
+    ],
+  },
+  {
+    label: "模板 · 演示",
+    icon: "▭",
+    entries: [
+      { title: "Magazine deck", desc: "杂志风横滑幻灯（内联翻页）", skillId: "magazine-deck" },
+      { title: "Consulting deck", desc: "咨询 / 战略汇报 + 演讲者备注", skillId: "consulting-deck" },
+    ],
+  },
+  {
     label: "Enhance",
     icon: "⊞",
     entries: [
@@ -80,6 +121,7 @@ export const SKILL_GROUPS: SkillGroup[] = [
         desc: "Hover, focus, active, disabled + transitions",
         skillId: "interaction-states-pass",
       },
+      { title: "Critique", desc: "五维专家评审 + 雷达图报告", skillId: "critique" },
     ],
   },
   {
