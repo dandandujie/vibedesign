@@ -47,6 +47,10 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
   const [streaming, setStreaming] = useState(false);
   const [activeSkill, setActiveSkill] = useState<SkillEntry | null>(null);
   const [skillsOpen, setSkillsOpen] = useState(false);
+  // Pending skill-inputs form: shown once (before generation) when the picked
+  // skill declares typed inputs; answers are folded into the brief.
+  const [skillInputForm, setSkillInputForm] = useState<{ brief: string; images?: string[] } | null>(null);
+  const pendingInputsRef = useRef(false);
   const [selected, setSelected] = useState<SelectedInfo | null>(null);
   const [tool, setTool] = useState<CanvasTool>(null);
   const [editTool, setEditTool] = useState<EditTool>("select");
@@ -266,6 +270,12 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
 
   const handleSend = async (text: string, images?: string[]) => {
     if (streaming || !hasProvider || !proj) return;
+    // Skill with declared inputs: collect them once, before generating.
+    if (pendingInputsRef.current && activeSkill?.inputs) {
+      pendingInputsRef.current = false;
+      setSkillInputForm({ brief: text, ...(images?.length ? { images } : {}) });
+      return;
+    }
     let content = text;
     if (dirty && canvasRef.current) {
       const html = await canvasRef.current.serialize();
@@ -273,6 +283,16 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
       setDirty(false);
     }
     runTurn([...messages, { role: "user", content, ...(images?.length ? { images } : {}) }]);
+  };
+
+  // Skill-inputs form submitted: fold the answers into the original brief.
+  const submitSkillInputs = (answersText: string) => {
+    const pending = skillInputForm;
+    setSkillInputForm(null);
+    if (!pending) return;
+    const brief = pending.brief.trim();
+    const content = `${brief ? brief + "\n\n" : ""}${answersText}`;
+    runTurn([...messages, { role: "user", content, ...(pending.images?.length ? { images: pending.images } : {}) }]);
   };
 
   const stop = () => {
@@ -684,7 +704,11 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
             meta={meta}
             onMetaChanged={onMetaChanged}
             activeSkill={activeSkill}
-            onClearSkill={() => setActiveSkill(null)}
+            onClearSkill={() => {
+              setActiveSkill(null);
+              pendingInputsRef.current = false;
+              setSkillInputForm(null);
+            }}
             onOpenSkills={() => setSkillsOpen(true)}
             onOpenDesignSystem={() => (location.hash = "#/?tab=design-systems")}
             onSend={handleSend}
@@ -845,7 +869,9 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
         </div>
 
         <div className={`canvas-stage device-${device}`}>
-          {liveArt && !streaming ? (
+          {skillInputForm && activeSkill?.inputs && !streaming ? (
+            <QuestionFormView form={activeSkill.inputs} onSubmit={submitSkillInputs} />
+          ) : liveArt && !streaming ? (
             <LiveArtifactViewer live={liveArt} providerId={meta?.activeProviderId} onChanged={setLiveArt} />
           ) : pendingForm ? (
             <QuestionFormView form={pendingForm} onSubmit={submitFormAnswers} />
@@ -997,6 +1023,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
               return;
             }
             setActiveSkill(entry);
+            pendingInputsRef.current = !!entry.inputs;
           }}
         />
       )}
