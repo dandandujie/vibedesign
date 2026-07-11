@@ -5,7 +5,9 @@
 
 **直接下载桌面版**：[Releases](https://github.com/dandandujie/vibedesign/releases/latest) — Windows（`Setup .exe`）/ macOS（`arm64` Apple Silicon、`x64` Intel 的 dmg/zip）。未签名：Windows SmartScreen 选「仍要运行」；macOS 首次打开右键 → 打开（或 `xattr -dr com.apple.quarantine /Applications/Vibedesign.app`）。
 
-目标：使用时**感觉完全在用 Claude Design**——UI/UX/交互/设计逻辑/全流程 1:1，唯一差异是 BYOK（自带模型服务：Anthropic / OpenAI / OpenAI-Responses / Gemini 格式 + 自定义 baseURL）。
+![Vibedesign 首页](docs/assets/home.png)
+
+目标：使用时**感觉完全在用 Claude Design**——UI/UX/交互/设计逻辑/全流程 1:1，唯一差异是 BYOK（自带模型服务：Anthropic / OpenAI / OpenAI-Responses / Gemini 格式 + 自定义 baseURL），并支持中/英切换。
 
 - 复刻真值来自**实地考察** claude.ai/design（`docs/field-study.md`、`docs/tokens-field.md`——含整套扒下来的 `--om-*` design tokens），流程规格见 `docs/replication-spec.md`。
 - 设计大脑用开源的 [Claude Design 系统提示词 + 14 skills](https://github.com/Trystan-SA/claude-design-system-prompt) 驱动。
@@ -90,7 +92,6 @@ git push origin main --tags
 
 在输入框上方的「技能」下拉里为下一条消息启用；不选则由模型按系统提示词自动决定。
 
-## 说明
+## 社区 · 友情链接
 
-- 系统提示词让模型**不透露内部机制/技能名**，并按「一个自包含 HTML 文档」的约定交付——这样画布才能干净地渲染与精修。
-- inspector 桥注入 iframe 后，序列化时会把自身完全剥离，**精修不污染 artifact 主体**。
+- [linux.do](https://linux.do) — 新的理想型社区，欢迎来交流 🐧
