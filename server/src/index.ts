@@ -40,6 +40,7 @@ import {
 import { renderMotionVideo, MotionRenderOpts } from "./motionRender.js";
 import { renderScreenshot, ShotOpts } from "./screenshotRender.js";
 import { serveMultiFile } from "./multiFile.js";
+import { serveDeckAsset } from "./deckAssets.js";
 import { moduleDir } from "./paths.js";
 import { randomUUID } from "node:crypto";
 
@@ -279,6 +280,16 @@ app.post("/api/render-screenshot", async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
+});
+
+// Shared deck runtime assets (open-design html-ppt: base.css / runtime.js /
+// themes / animations). Decks link these by stable /api/deck-assets/ URLs.
+app.get("/api/deck-assets/*", (req, res) => {
+  const served = serveDeckAsset((req.params as Record<string, string>)[0] ?? "");
+  if (!served) return res.status(404).send("not found");
+  res.setHeader("Content-Type", served.contentType);
+  res.setHeader("Cache-Control", "public, max-age=3600");
+  res.send(served.buffer);
 });
 
 // Multi-file artifact serving: entry HTML + sibling files (styles.css / app.js).
