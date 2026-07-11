@@ -92,8 +92,9 @@ export function DsSetupPage() {
       (localCtx ? `\n（本地代码库中的设计相关文件——提取其中的真实 tokens）\n${localCtx}\n` : "") +
       (figCtx ? `\n${figCtx}\n` : "") +
       `\n输出要求（务必遵守）：\n` +
-      `1. 先输出一个 \`\`\`vddesignsystem 代码块：纯文本的 design system 规范（色彩 tokens 十六进制、字体族与字阶、间距刻度、圆角/阴影、组件规范、语气），后续设计将直接依据这份文本。\n` +
-      `2. 然后输出 \`\`\`html 展示页：完整呈现 tokens、色板、字体样本与核心组件（按钮/卡片/输入框各状态）。`;
+      `1. 先输出一个 \`\`\`vddesignsystem 代码块：一份结构化的 design system 规范（DESIGN.md），按 9 段组织——① 视觉主题与氛围 ② 色板与角色 ③ 排版规则 ④ 组件样式 ⑤ 布局原则 ⑥ 深度与层次 ⑦ Do's & Don'ts ⑧ 响应式 ⑨ Agent 使用指引。这是散文式的意图与语气说明。\n` +
+      `2. 再输出一个 \`\`\`vddstokens 代码块：与上面规范对应的机器可读 token 契约——一个 :root {} 块，含色彩/字体族/字阶/间距/圆角/阴影的 CSS 自定义属性，值用真实十六进制。后续每个设计都会把这个 :root 逐字粘进第一个 <style>，所以命名要规范、值要确定、不要遗漏常用 token。\n` +
+      `3. 最后输出 \`\`\`html 展示页：完整呈现 tokens、色板、字体样本与核心组件（按钮/卡片/输入框各状态）。`;
     sessionStorage.setItem(
       `vd_seed_${p.id}`,
       JSON.stringify({ text: seed, images: assets.length ? assets : undefined, dsSetup: true }),

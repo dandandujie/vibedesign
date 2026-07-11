@@ -1,3 +1,8 @@
+---
+craft: [typography, typography-hierarchy]
+triggers: [wireframe, layout, low fidelity, structure, blueprint]
+---
+
 # Wireframe: Explore Many Ideas Quickly
 
 Produce low-fidelity wireframes or storyboards to explore a flow, layout, or idea before committing to hi-fi design. Use this when the user wants to "explore options," "sketch something out," or "see a few directions," or when the problem is open enough that hi-fi work would be wasted. **Wireframes are disposable** — their value is breadth of options, not the fidelity of any one.

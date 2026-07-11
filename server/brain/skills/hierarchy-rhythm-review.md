@@ -1,3 +1,8 @@
+---
+craft: [typography-hierarchy, laws-of-ux]
+triggers: [hierarchy, rhythm, visual hierarchy, spacing review]
+---
+
 # Hierarchy and Rhythm Review
 
 Review the current design for visual hierarchy and rhythm — the two qualities that most distinguish "intentional" from "AI-generated" — and fix issues found. **Hierarchy guides the eye** (what gets looked at first, second, third); **rhythm makes the design feel intentional** (repetition with strategic variation). When they're right, the design feels effortless to scan.

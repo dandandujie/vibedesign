@@ -1,3 +1,8 @@
+---
+craft: [color, typography]
+triggers: [variations, options, alternatives, explore directions]
+---
+
 # Generate Variations: Produce 3+ Design Options
 
 Produce multiple distinct design variations of a screen, component, or flow so the user can mix and match the strongest pieces. Use this when the user asks for options, alternatives, "different takes," or "show me a few." **Variations are the cheapest path to good design** — one design is one bet; three let the user reject what they don't want and combine what they do.

@@ -30,8 +30,12 @@ export interface SelectedStyles {
   textShadow: string;
 }
 
+export type ElementKind = "text" | "link" | "image" | "container";
+
 export interface SelectedInfo {
   path: string;
+  vid: string; // stable data-vd-id (empty for legacy/non-discoverable elements)
+  kind: ElementKind;
   tag: string;
   text: string;
   editable: boolean;
@@ -51,11 +55,26 @@ export interface TreeNode {
   kids: TreeNode[];
 }
 
+export type VersionSource = "ai" | "manual" | "restore";
+
 export interface ArtifactVersion {
   id: string;
   html: string;
   label: string;
   createdAt: number;
+  kind?: "html" | "markdown"; // deliverable renderer (A6-3); default html
+  source?: VersionSource; // provenance: how this version came to be
+  prompt?: string; // the user prompt that produced an AI version (snippet)
+  restoreFromVersionId?: string; // set when this version restores an earlier one
 }
 
 export type Device = "desktop" | "tablet" | "mobile";
+
+// A rect (iframe-viewport coords) keyed by an arbitrary id — used to position
+// live-following comment pins over the canvas.
+export type RectMap = Record<string, { x: number; y: number; w: number; h: number }>;
+export interface PinTarget {
+  id: string;
+  vid?: string;
+  path: string;
+}

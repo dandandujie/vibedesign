@@ -1,3 +1,8 @@
+---
+craft: [color, typography]
+triggers: [tweakable, controls, sliders, adjustable, knobs]
+---
+
 # Make Tweakable: Add In-Design Tweak Controls
 
 Add a floating control panel to a finished design that lets the user adjust selected aspects live — colors, fonts, spacing, copy, layout variants, feature flags. Use this when the user wants to "play with options," "see different versions," or compare visual choices. **One file, many variants** — no v1.html / v2.html / v3.html scatter.

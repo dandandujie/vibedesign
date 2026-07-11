@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { t } from "../lib/i18n";
 import { clampPop } from "../lib/popover";
+import { buildDesignManifest, buildHandoffMd } from "../lib/handoff";
 
 interface Props {
   artifactHtml: string | null;
@@ -36,6 +37,63 @@ export function SharePopover({ artifactHtml, projectName, exportPng }: Props) {
     URL.revokeObjectURL(a.href);
   };
 
+  // Prefer the native save dialog (Chromium); fall back to a plain download.
+  const saveDataUrl = async (name: string, dataUrl: string) => {
+    const blob = await (await fetch(dataUrl)).blob();
+    const picker = (window as unknown as {
+      showSaveFilePicker?: (o: unknown) => Promise<{ createWritable: () => Promise<{ write: (b: Blob) => Promise<void>; close: () => Promise<void> }> }>;
+    }).showSaveFilePicker;
+    if (picker) {
+      try {
+        const handle = await picker({ suggestedName: name, types: [{ description: "PNG image", accept: { "image/png": [".png"] } }] });
+        const w = await handle.createWritable();
+        await w.write(blob);
+        await w.close();
+        return;
+      } catch (e) {
+        if ((e as Error)?.name === "AbortError") return; // user cancelled
+      }
+    }
+    download(name, blob, "image/png");
+  };
+
+  const copyImage = async (dataUrl: string) => {
+    try {
+      const blob = await (await fetch(dataUrl)).blob();
+      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard image write unsupported */
+    }
+  };
+
+  const exportMd = () => {
+    if (!artifactHtml) return;
+    download(`${safe}.md`, "```html\n" + artifactHtml + "\n```\n", "text/markdown");
+  };
+
+  const exportVideo = async () => {
+    if (!artifactHtml) return;
+    setBusy("video");
+    try {
+      const r = await fetch("/api/render-motion", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ html: artifactHtml, fps: 30, width: 1280, height: 720, format: "mp4" }),
+      });
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({}));
+        throw new Error(e.error ?? "渲染失败");
+      }
+      download(`${safe}.mp4`, await r.blob(), "video/mp4");
+    } catch (e) {
+      alert(`视频导出失败：${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const copyLink = async () => {
     await navigator.clipboard.writeText(location.href);
     setCopied(true);
@@ -55,12 +113,9 @@ export function SharePopover({ artifactHtml, projectName, exportPng }: Props) {
     if (!artifactHtml) return;
     const { default: JSZip } = await import("jszip");
     const zip = new JSZip();
-    zip.file("design.html", artifactHtml);
-    zip.file(
-      "README.md",
-      `# ${projectName} — design handoff\n\nSelf-contained HTML design from Vibedesign.\n\n` +
-        `## For a coding agent\n\nConvert \`design.html\` into the project's framework preserving layout, spacing, typography and interaction states exactly.\n`,
-    );
+    zip.file("index.html", artifactHtml);
+    zip.file("DESIGN-HANDOFF.md", buildHandoffMd(artifactHtml, projectName));
+    zip.file("DESIGN-MANIFEST.json", JSON.stringify(buildDesignManifest(artifactHtml, projectName), null, 2));
     download(`${safe}-handoff.zip`, await zip.generateAsync({ type: "blob" }), "application/zip");
   };
 
@@ -112,7 +167,15 @@ export function SharePopover({ artifactHtml, projectName, exportPng }: Props) {
             <span className="ic">🤝</span>
             <span className="tx">
               <span className="t">{t("Claude Code bundle")}</span>
-              <span className="d">{t("design.html + README for a coding agent")}</span>
+              <span className="d">{t("index.html + HANDOFF.md + MANIFEST.json")}</span>
+            </span>
+            <span className="go">{t("Download")}</span>
+          </button>
+          <button className="export-item" onClick={exportMd} disabled={!artifactHtml}>
+            <span className="ic">📝</span>
+            <span className="tx">
+              <span className="t">Markdown</span>
+              <span className="d">{t("Source in a fenced block, for an LLM")}</span>
             </span>
             <span className="go">{t("Download")}</span>
           </button>
@@ -153,12 +216,7 @@ export function SharePopover({ artifactHtml, projectName, exportPng }: Props) {
               setBusy("png");
               try {
                 const img = await exportPng(null, 2);
-                if (img) {
-                  const a = document.createElement("a");
-                  a.href = img;
-                  a.download = `${safe}.png`;
-                  a.click();
-                }
+                if (img) await saveDataUrl(`${safe}.png`, img);
               } finally {
                 setBusy(null);
               }
@@ -168,6 +226,35 @@ export function SharePopover({ artifactHtml, projectName, exportPng }: Props) {
             <span className="tx">
               <span className="t">{t("PNG image")}</span>
               <span className="d">{busy === "png" ? "生成中…" : "Full design at 2×"}</span>
+            </span>
+            <span className="go">{t("Save")}</span>
+          </button>
+          <button
+            className="export-item"
+            disabled={!artifactHtml || !exportPng || busy === "copy"}
+            onClick={async () => {
+              if (!exportPng) return;
+              setBusy("copy");
+              try {
+                const img = await exportPng(null, 2);
+                if (img) await copyImage(img);
+              } finally {
+                setBusy(null);
+              }
+            }}
+          >
+            <span className="ic">📋</span>
+            <span className="tx">
+              <span className="t">{t("Copy image")}</span>
+              <span className="d">{busy === "copy" ? "生成中…" : copied ? t("Copied") : "PNG to clipboard"}</span>
+            </span>
+            <span className="go">{copied ? "✓" : t("Copy")}</span>
+          </button>
+          <button className="export-item" onClick={exportVideo} disabled={!artifactHtml || busy === "video"}>
+            <span className="ic">🎬</span>
+            <span className="tx">
+              <span className="t">{t("Video (MP4)")}</span>
+              <span className="d">{busy === "video" ? "渲染中…（无头逐帧）" : "Render the animation as MP4"}</span>
             </span>
             <span className="go">{t("Download")}</span>
           </button>

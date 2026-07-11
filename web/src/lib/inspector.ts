@@ -12,6 +12,9 @@ const INSPECTOR_SCRIPT = String.raw`
   window.__vd_inspector = true;
   var enabled = false, selected = null, hoverEl = null;
   var HL = "__vd_hl", SEL = "__vd_sel";
+  var idCounter = 0;                 // stable element ids (data-vd-id)
+  var textEditEnabled = false;       // inline text editing armed (edit-select only)
+  var editingEl = null, editingOrig = null; // active inline-edit target + original text
 
   var style = document.createElement("style");
   style.setAttribute("data-vd-inspector", "");
@@ -47,12 +50,85 @@ const INSPECTOR_SCRIPT = String.raw`
     return parts.join(" > ");
   }
 
+  // ---- stable ids + element discovery + kind classification -----------------
+  // A host node is anything WE injected (inspector style/script, draw layer,
+  // drawn shapes). These must never be selectable, id'd, or counted in paths.
+  function isHostNode(el) {
+    return !!(el && el.nodeType === 1 && (
+      el.hasAttribute("data-vd-inspector") ||
+      el.id === "vd-draw-layer" ||
+      el.hasAttribute("data-vd-drawn")
+    ));
+  }
+
+  // Semantic elements worth selecting/annotating — skip pure layout wrappers.
+  var DISCOVERY_TAGS = "h1,h2,h3,h4,h5,h6,p,span,a,button,li,img,svg,label,input,textarea,select,td,th,blockquote,figcaption,small,strong,em,code,pre,summary,dt,dd,figure";
+  function isDiscoverable(el) {
+    if (!el || el.nodeType !== 1 || isHostNode(el)) return false;
+    var r = el.getBoundingClientRect();
+    if (r.width < 4 || r.height < 4) return false;              // ignore slivers
+    var tag = el.tagName.toLowerCase();
+    if (("," + DISCOVERY_TAGS + ",").indexOf("," + tag + ",") !== -1) return true;
+    // a div/section is discoverable only if it directly owns visible text
+    for (var i = 0; i < el.childNodes.length; i++) {
+      var n = el.childNodes[i];
+      if (n.nodeType === 3 && n.textContent.trim()) return true;
+    }
+    return false;
+  }
+
+  // Walk up from a raw event target to the nearest discoverable element.
+  function closestSelectable(el) {
+    while (el && el.nodeType === 1 && el !== document.body) {
+      if (isHostNode(el)) return null;
+      if (isDiscoverable(el)) return el;
+      el = el.parentElement;
+    }
+    return null;
+  }
+
+  function kindOf(el) {
+    var tag = el.tagName.toLowerCase();
+    if (tag === "a") return "link";
+    if (tag === "img" || tag === "svg" || tag === "picture") return "image";
+    var cs = getComputedStyle(el);
+    if (cs.backgroundImage && cs.backgroundImage !== "none") return "image";
+    if (el.children.length === 0 && (el.textContent || "").trim()) return "text";
+    // container that directly owns text still edits as text
+    for (var i = 0; i < el.childNodes.length; i++) {
+      if (el.childNodes[i].nodeType === 3 && el.childNodes[i].textContent.trim()) return "text";
+    }
+    return "container";
+  }
+
+  // Assign a stable data-vd-id to every discoverable element that lacks one.
+  // Idempotent: elements that already carry an id (e.g. from serialized HTML)
+  // keep it, so ids survive reloads, undo/redo and manual edits.
+  function assignIds() {
+    var all = document.body ? document.body.querySelectorAll("*") : [];
+    for (var i = 0; i < all.length; i++) {
+      var el = all[i];
+      if (isHostNode(el)) continue;
+      if (!el.hasAttribute("data-vd-id") && isDiscoverable(el)) {
+        el.setAttribute("data-vd-id", "v" + (++idCounter));
+      }
+    }
+    // keep the counter ahead of any ids already present in the document
+    var existing = document.body ? document.body.querySelectorAll("[data-vd-id]") : [];
+    for (var j = 0; j < existing.length; j++) {
+      var m = /^v(\d+)$/.exec(existing[j].getAttribute("data-vd-id") || "");
+      if (m && +m[1] > idCounter) idCounter = +m[1];
+    }
+  }
+
   function describe(el) {
     var cs = getComputedStyle(el);
     var leaf = el.children.length === 0;
     var r = el.getBoundingClientRect();
     return {
       path: cssPath(el),
+      vid: el.getAttribute("data-vd-id") || "",
+      kind: kindOf(el),
       tag: el.tagName.toLowerCase(),
       text: (el.textContent || "").trim().slice(0, 500),
       editable: leaf,
@@ -96,6 +172,7 @@ const INSPECTOR_SCRIPT = String.raw`
   function clearHover() { if (hoverEl) { hoverEl.classList.remove(HL); hoverEl = null; } }
 
   function select(el) {
+    finishEdit(true);            // switching selection commits any active edit
     if (selected) selected.classList.remove(SEL);
     selected = el;
     clearHover();
@@ -103,10 +180,59 @@ const INSPECTOR_SCRIPT = String.raw`
     post({ type: "selected", info: describe(el) });
   }
 
+  // ---- inline text editing (click a text element, edit in place) ------------
+  // Commit discipline: NEVER commit on iframe blur (moving the mouse to a host
+  // overlay blurs the iframe). Only Enter / selecting another target / blank
+  // click / leaving edit mode commit; Escape reverts.
+  function caretAt(x, y) {
+    try {
+      if (document.caretRangeFromPoint) return document.caretRangeFromPoint(x, y);
+      if (document.caretPositionFromPoint) {
+        var p = document.caretPositionFromPoint(x, y);
+        if (p) { var r = document.createRange(); r.setStart(p.offsetNode, p.offset); r.collapse(true); return r; }
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function onEditKey(e) {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); finishEdit(true); }
+    else if (e.key === "Escape") { e.preventDefault(); finishEdit(false); }
+  }
+
+  function startInlineEdit(el, x, y) {
+    if (editingEl === el) return;
+    post({ type: "textEditStart" }); // host snapshots the pre-edit state for undo
+    select(el);                 // reflect in the host panel; also commits prior edit
+    editingEl = el;
+    editingOrig = el.textContent;
+    window.__vd_editing = true; // read by the keydown guard injected in <head>
+    try { el.setAttribute("contenteditable", "plaintext-only"); } catch (e) { el.setAttribute("contenteditable", "true"); }
+    el.focus();
+    var rng = caretAt(x, y);
+    if (rng) { var s = window.getSelection(); s.removeAllRanges(); s.addRange(rng); }
+    el.addEventListener("keydown", onEditKey, true);
+  }
+
+  function finishEdit(commit) {
+    if (!editingEl) return;
+    var el = editingEl, orig = editingOrig;
+    editingEl = null; editingOrig = null;
+    window.__vd_editing = false;
+    el.removeEventListener("keydown", onEditKey, true);
+    el.removeAttribute("contenteditable");
+    var val = el.textContent;
+    if (!commit) { el.textContent = orig; return; }
+    if (val !== orig) {
+      post({ type: "textCommit", vid: el.getAttribute("data-vd-id") || "", path: cssPath(el), value: val });
+      post({ type: "selected", info: describe(el) });
+    }
+  }
+
   document.addEventListener("mouseover", function (e) {
     if (!enabled) return;
-    var t = e.target;
-    if (!t || t === selected || !t.classList) return;
+    var t = closestSelectable(e.target);
+    if (!t || t === selected) return;
     clearHover();
     hoverEl = t;
     t.classList.add(HL);
@@ -116,7 +242,15 @@ const INSPECTOR_SCRIPT = String.raw`
     if (!enabled) return;
     e.preventDefault();
     e.stopPropagation();
-    if (e.target && e.target.nodeType === 1) select(e.target);
+    var t = closestSelectable(e.target);
+    if (!t) {
+      // clicked blank space — commit any active edit and deselect
+      finishEdit(true);
+      if (selected) { selected.classList.remove(SEL); selected = null; post({ type: "selected", info: null }); }
+      return;
+    }
+    if (textEditEnabled && (kindOf(t) === "text" || kindOf(t) === "link")) startInlineEdit(t, e.clientX, e.clientY);
+    else select(t);
   }, true);
 
   // Navigation guard: a self-contained artifact must never unload itself.
@@ -161,13 +295,21 @@ const INSPECTOR_SCRIPT = String.raw`
     e.preventDefault();
   }, true);
 
-  function serialize() {
+  function serialize(clean) {
+    // Do NOT finishEdit here: serialize is also used to snapshot the pre-edit
+    // state (textEditStart). The clone strips contenteditable, and a committed
+    // edit is already in the live DOM, so the current text is captured either
+    // way without disturbing an in-progress edit.
     var clone = document.documentElement.cloneNode(true);
     Array.prototype.forEach.call(clone.querySelectorAll("[data-vd-inspector]"), function (n) { n.remove(); });
     Array.prototype.forEach.call(clone.querySelectorAll("." + HL + ",." + SEL), function (n) {
       n.classList.remove(HL); n.classList.remove(SEL);
       if (n.getAttribute("class") === "") n.removeAttribute("class");
     });
+    Array.prototype.forEach.call(clone.querySelectorAll("[contenteditable]"), function (n) { n.removeAttribute("contenteditable"); });
+    // data-vd-id rides with working HTML (undo/save/round-trip stay stable);
+    // clean=true strips it for export/share/present so the artifact is pristine.
+    if (clean) Array.prototype.forEach.call(clone.querySelectorAll("[data-vd-id]"), function (n) { n.removeAttribute("data-vd-id"); });
     return "<!doctype html>\n<html " + attrs(clone) + ">" + clone.innerHTML + "</html>";
   }
   function attrs(el) {
@@ -324,11 +466,104 @@ const INSPECTOR_SCRIPT = String.raw`
     }
   };
 
+  // ---- palette reskin: hue-shift chromatic colors, keep grays/near-b&w ------
+  function _parseColor(s) {
+    if (!s) return null; s = String(s).trim();
+    var m;
+    if ((m = s.match(/^#([0-9a-f]{3})$/i))) { var h = m[1]; return { r: parseInt(h[0] + h[0], 16), g: parseInt(h[1] + h[1], 16), b: parseInt(h[2] + h[2], 16), a: 1 }; }
+    if ((m = s.match(/^#([0-9a-f]{6})$/i))) { var h6 = m[1]; return { r: parseInt(h6.slice(0, 2), 16), g: parseInt(h6.slice(2, 4), 16), b: parseInt(h6.slice(4, 6), 16), a: 1 }; }
+    if ((m = s.match(/^#([0-9a-f]{8})$/i))) { var h8 = m[1]; return { r: parseInt(h8.slice(0, 2), 16), g: parseInt(h8.slice(2, 4), 16), b: parseInt(h8.slice(4, 6), 16), a: parseInt(h8.slice(6, 8), 16) / 255 }; }
+    if ((m = s.match(/^rgba?\(([^)]+)\)/i))) { var p = m[1].split(",").map(function (x) { return parseFloat(x); }); return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 }; }
+    return null;
+  }
+  function _rgb2hsl(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    var mx = Math.max(r, g, b), mn = Math.min(r, g, b), h, s, l = (mx + mn) / 2;
+    if (mx === mn) { h = s = 0; } else {
+      var dd = mx - mn; s = l > 0.5 ? dd / (2 - mx - mn) : dd / (mx + mn);
+      if (mx === r) h = (g - b) / dd + (g < b ? 6 : 0); else if (mx === g) h = (b - r) / dd + 2; else h = (r - g) / dd + 4;
+      h /= 6;
+    }
+    return [h * 360, s, l];
+  }
+  function _hsl2rgb(h, s, l) {
+    h /= 360; var r, g, b;
+    if (s === 0) { r = g = b = l; } else {
+      function hue(p, q, t) { if (t < 0) t += 1; if (t > 1) t -= 1; if (t < 1 / 6) return p + (q - p) * 6 * t; if (t < 1 / 2) return q; if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6; return p; }
+      var q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+      r = hue(p, q, h + 1 / 3); g = hue(p, q, h); b = hue(p, q, h - 1 / 3);
+    }
+    return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+  }
+  function shiftColor(str, delta) {
+    var c = _parseColor(str); if (!c) return null;
+    var hsl = _rgb2hsl(c.r, c.g, c.b);
+    if (hsl[1] < 0.12) return null;                 // achromatic (gray/near b&w) — leave it
+    var nh = (((hsl[0] + delta) % 360) + 360) % 360;
+    var rgb = _hsl2rgb(nh, hsl[1], hsl[2]);
+    return c.a < 1 ? "rgba(" + rgb[0] + "," + rgb[1] + "," + rgb[2] + "," + c.a + ")" : "rgb(" + rgb[0] + "," + rgb[1] + "," + rgb[2] + ")";
+  }
+
+  var paletteBase = null;   // remembered original :root custom-prop values, for reset
+  function applyPalette(delta) {
+    var root = document.documentElement;
+    // 1. :root custom properties (token-based designs recolor in one step)
+    if (!paletteBase) {
+      paletteBase = {};
+      var names = {};
+      try {
+        for (var i = 0; i < document.styleSheets.length; i++) {
+          var rules; try { rules = document.styleSheets[i].cssRules; } catch (e) { continue; }
+          if (!rules) continue;
+          for (var j = 0; j < rules.length; j++) {
+            var st = rules[j].style; if (!st) continue;
+            for (var k = 0; k < st.length; k++) { if (st[k].indexOf("--") === 0) names[st[k]] = 1; }
+          }
+        }
+      } catch (e2) {}
+      var cs = getComputedStyle(root);
+      Object.keys(names).forEach(function (n) { paletteBase[n] = cs.getPropertyValue(n).trim(); });
+    }
+    Object.keys(paletteBase).forEach(function (n) { var sh = shiftColor(paletteBase[n], delta); if (sh) root.style.setProperty(n, sh); });
+    // 2. stylesheet color rules → override layer (for hardcoded, non-token colors)
+    var css = "";
+    try {
+      for (var a = 0; a < document.styleSheets.length; a++) {
+        var sheet = document.styleSheets[a];
+        // never read back our own override sheet — its author-selector rules
+        // carry no "data-vd" marker and would be re-shifted cumulatively.
+        if (sheet.ownerNode && sheet.ownerNode.id === "vd-palette") continue;
+        var rr; try { rr = sheet.cssRules; } catch (e3) { continue; }
+        if (!rr) continue;
+        for (var b2 = 0; b2 < rr.length; b2++) {
+          var rule = rr[b2];
+          if (rule.type !== 1 || !rule.style || !rule.selectorText) continue;
+          if (rule.selectorText.indexOf("data-vd") !== -1) continue;
+          var decl = "";
+          ["color", "background-color", "border-color", "outline-color", "fill", "stroke"].forEach(function (prop) {
+            var v = rule.style.getPropertyValue(prop);
+            if (v && v.indexOf("var(") !== 0) { var sh2 = shiftColor(v, delta); if (sh2) decl += prop + ":" + sh2 + " !important;"; }
+          });
+          if (decl) css += rule.selectorText + "{" + decl + "}\n";
+        }
+      }
+    } catch (e4) {}
+    var tag = document.getElementById("vd-palette");
+    if (!tag) { tag = document.createElement("style"); tag.id = "vd-palette"; tag.setAttribute("data-vd-palette", ""); document.documentElement.appendChild(tag); }
+    tag.textContent = css;
+  }
+  function resetPalette() {
+    var root = document.documentElement;
+    if (paletteBase) Object.keys(paletteBase).forEach(function (n) { root.style.removeProperty(n); });
+    var tag = document.getElementById("vd-palette"); if (tag) tag.remove();
+  }
+
   window.addEventListener("message", function (e) {
     var d = e.data || {};
     if (!d.__vd_cmd) return;
-    if (d.__vd_cmd === "enable") { enabled = !!d.value; if (!enabled) clearHover(); }
-    else if (d.__vd_cmd === "drawMode") { drawTool = d.tool || null; if (drawTool) { enabled = false; clearHover(); } }
+    if (d.__vd_cmd === "enable") { enabled = !!d.value; if (!enabled) { finishEdit(true); clearHover(); } }
+    else if (d.__vd_cmd === "textEdit") { textEditEnabled = !!d.value; if (!textEditEnabled) finishEdit(true); }
+    else if (d.__vd_cmd === "drawMode") { drawTool = d.tool || null; if (drawTool) { finishEdit(true); enabled = false; clearHover(); } }
     else if (d.__vd_cmd === "claudeResult") {
       var w = claudeWaiters[d.reqId];
       if (w) { d.error ? w.err(new Error(d.error)) : w.ok(d.text); delete claudeWaiters[d.reqId]; }
@@ -360,8 +595,10 @@ const INSPECTOR_SCRIPT = String.raw`
         }
       } catch (err) {}
     }
-    else if (d.__vd_cmd === "clear") { if (selected) { selected.classList.remove(SEL); selected = null; } clearHover(); }
-    else if (d.__vd_cmd === "serialize") { post({ type: "serialized", reqId: d.reqId, html: serialize() }); }
+    else if (d.__vd_cmd === "palette") { applyPalette(d.hueDelta || 0); }
+    else if (d.__vd_cmd === "paletteReset") { resetPalette(); }
+    else if (d.__vd_cmd === "clear") { finishEdit(true); if (selected) { selected.classList.remove(SEL); selected = null; } clearHover(); }
+    else if (d.__vd_cmd === "serialize") { post({ type: "serialized", reqId: d.reqId, html: serialize(d.clean) }); }
     else if (d.__vd_cmd === "getTree") {
       function node(el, depth) {
         if (!el || !el.tagName || depth > 6) return null;
@@ -384,17 +621,86 @@ const INSPECTOR_SCRIPT = String.raw`
     else if (d.__vd_cmd === "selectByPath") {
       try { var el = document.querySelector(d.path); if (el) select(el); } catch (err) {}
     }
+    else if (d.__vd_cmd === "selectByVid") {
+      var elv = null;
+      try { if (d.vid) elv = document.querySelector('[data-vd-id="' + d.vid + '"]'); } catch (e1) {}
+      if (!elv && d.path) { try { elv = document.querySelector(d.path); } catch (e2) {} }
+      if (elv) select(elv);
+    }
+    else if (d.__vd_cmd === "getScroll") {
+      post({ type: "scroll", reqId: d.reqId, x: window.scrollX || 0, y: window.scrollY || 0, dw: document.documentElement.scrollWidth, dh: document.documentElement.scrollHeight });
+    }
+    else if (d.__vd_cmd === "getRects") {
+      // Resolve current viewport rects for a set of pin targets (by vid, then
+      // path). Powers the host's live-following comment pins.
+      var rects = {};
+      var ts = d.targets || [];
+      for (var ri = 0; ri < ts.length; ri++) {
+        var q = ts[ri], elr = null;
+        try { if (q.vid) elr = document.querySelector('[data-vd-id="' + q.vid + '"]'); } catch (e7) {}
+        if (!elr && q.path) { try { elr = document.querySelector(q.path); } catch (e8) {} }
+        if (elr) { var rr = elr.getBoundingClientRect(); rects[q.id] = { x: rr.x, y: rr.y, w: rr.width, h: rr.height }; }
+      }
+      post({ type: "rects", reqId: d.reqId, rects: rects });
+    }
   });
 
+  // Tell the host when the artifact scrolls/resizes so it can re-follow pins.
+  var vpRaf = 0;
+  function notifyViewport() { if (vpRaf) return; vpRaf = requestAnimationFrame(function () { vpRaf = 0; post({ type: "viewport" }); }); }
+  window.addEventListener("scroll", notifyViewport, true);
+  window.addEventListener("resize", notifyViewport, true);
+
+  assignIds();
   post({ type: "ready" });
 })();
 `;
 
-// Inject the bridge script just before </body> (or append). We tag it so
-// serialize() removes it — the persisted artifact is always clean.
+// Keyboard guard — injected at the START of <head>, before any user script can
+// register key handlers. It patches addEventListener so that WHILE inline text
+// editing is active (window.__vd_editing), the artifact's own keydown handlers
+// (a game's WASD, a deck's arrow-key paging) are suppressed — except the keys
+// our editor needs (Enter / Escape / Tab). Tagged data-vd-inspector so
+// serialize() strips it.
+const GUARD_SCRIPT = String.raw`
+(function () {
+  if (window.__vd_keyguard) return;
+  window.__vd_keyguard = true;
+  var KEYS = { keydown: 1, keyup: 1, keypress: 1 };
+  var ALLOW = { Enter: 1, Escape: 1, Tab: 1 };
+  var add = EventTarget.prototype.addEventListener;
+  var rm = EventTarget.prototype.removeEventListener;
+  EventTarget.prototype.addEventListener = function (type, listener, opts) {
+    if (KEYS[type] && typeof listener === "function" && !listener.__vd_wrapped_as) {
+      var wrapped = function (e) {
+        if (window.__vd_editing && !ALLOW[e && e.key]) return;
+        return listener.apply(this, arguments);
+      };
+      listener.__vd_wrapped_as = wrapped;
+      return add.call(this, type, wrapped, opts);
+    }
+    return add.call(this, type, listener, opts);
+  };
+  EventTarget.prototype.removeEventListener = function (type, listener, opts) {
+    if (KEYS[type] && listener && listener.__vd_wrapped_as) return rm.call(this, type, listener.__vd_wrapped_as, opts);
+    return rm.call(this, type, listener, opts);
+  };
+})();
+`;
+
+// Inject both bridges. The guard runs first (start of <head>) so it patches
+// addEventListener before user scripts register handlers; the main inspector
+// runs at </body>. Both are tagged so serialize() removes them — the persisted
+// artifact is always clean.
 export function injectInspector(html: string): string {
-  const tag = `<script ${INSPECTOR_ATTR}>${INSPECTOR_SCRIPT}<\/script>`;
-  if (/<\/body>/i.test(html)) return html.replace(/<\/body>/i, `${tag}</body>`);
-  if (/<\/html>/i.test(html)) return html.replace(/<\/html>/i, `${tag}</html>`);
-  return html + tag;
+  const guard = `<script ${INSPECTOR_ATTR}>${GUARD_SCRIPT}<\/script>`;
+  const main = `<script ${INSPECTOR_ATTR}>${INSPECTOR_SCRIPT}<\/script>`;
+  let out = html;
+  if (/<head[^>]*>/i.test(out)) out = out.replace(/<head[^>]*>/i, (m) => `${m}${guard}`);
+  else if (/<html[^>]*>/i.test(out)) out = out.replace(/<html[^>]*>/i, (m) => `${m}${guard}`);
+  else out = guard + out;
+  if (/<\/body>/i.test(out)) out = out.replace(/<\/body>/i, `${main}</body>`);
+  else if (/<\/html>/i.test(out)) out = out.replace(/<\/html>/i, `${main}</html>`);
+  else out = out + main;
+  return out;
 }

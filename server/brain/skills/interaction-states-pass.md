@@ -1,3 +1,8 @@
+---
+craft: [state-coverage, accessibility-baseline]
+triggers: [states, hover, focus, empty state, loading, error state]
+---
+
 # Interaction States Pass
 
 Verify every interactive element has a complete set of states (default, hover, active, disabled, focus, loading) plus transitions and feedback; add what's missing. **Interactive elements without state feedback feel broken** — a button without hover looks like a label; a removed focus ring locks out keyboard users. This is the safety net before a design is shown to users.

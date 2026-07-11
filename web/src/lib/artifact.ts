@@ -2,7 +2,16 @@
 // Per the runtime contract, the model outputs the full document in a single
 // ```html fenced block. We take the LAST such block as the current artifact.
 
+import { markdownToHtml } from "./mddoc";
+
 const FENCE = /```html\s*\n([\s\S]*?)```/gi;
+
+// Strip internal working attributes (stable ids) so exported / presented /
+// shared HTML is pristine. Working HTML carries data-vd-id for stable
+// selection & pin locating; it must never leak into a deliverable.
+export function stripWorkingAttrs(html: string): string {
+  return html.replace(/\s+data-vd-id="[^"]*"/g, "");
+}
 
 export function extractArtifact(text: string): string | null {
   let last: string | null = null;
@@ -15,6 +24,51 @@ export function extractArtifact(text: string): string | null {
   return last.trim();
 }
 
+// ---- deliverable renderer registry (A6-3) ----------------------------------
+// The model delivers either a visual design (```html) or a prose/document
+// deliverable (```mddoc, markdown). extractDeliverable dispatches to the right
+// renderer and always returns canvas-ready HTML + the kind, so everything
+// downstream (canvas, versions, export, present) works uniformly.
+
+// Greedy to the LAST ``` so a document that itself contains fenced code blocks
+// (```js …```) is captured whole rather than truncated at the first inner fence.
+// The mddoc block is the deliverable, so nothing meaningful follows it.
+const MDDOC_FENCE = /```mddoc\s*\n([\s\S]*)```/i;
+
+export function extractMarkdownDoc(text: string): string | null {
+  const m = text.match(MDDOC_FENCE);
+  return m ? m[1].trim() : null;
+}
+
+export interface Deliverable {
+  kind: "html" | "markdown";
+  html: string; // canvas-ready HTML (markdown is rendered to a styled document)
+  title: string;
+}
+
+export function extractDeliverable(text: string): Deliverable | null {
+  // position of the LAST ```html block
+  let htmlPos = -1;
+  let mm: RegExpExecArray | null;
+  FENCE.lastIndex = 0;
+  while ((mm = FENCE.exec(text)) !== null) htmlPos = mm.index;
+  // position of the ```mddoc block
+  const md = text.match(MDDOC_FENCE);
+  const mdPos = md ? (md.index ?? -1) : -1;
+
+  if (htmlPos === -1 && mdPos === -1) return null;
+  // whichever comes later is the actual deliverable
+  if (mdPos > htmlPos && md) {
+    const src = md[1].trim();
+    const title = src.match(/^#\s+(.+)$/m)?.[1]?.trim().slice(0, 40) ?? "文档";
+    return { kind: "markdown", html: markdownToHtml(src, title), title };
+  }
+  const html = extractArtifact(text);
+  if (!html) return null;
+  const title = text.match(/^####\s+(.+)$/m)?.[1]?.trim().slice(0, 40) ?? "设计";
+  return { kind: "html", html, title };
+}
+
 // Strip the fenced artifact out of the chat text so the transcript stays
 // readable (we render the artifact in the canvas, not inline). Also cuts a
 // still-streaming, not-yet-closed ```html block so raw markup never flashes in
@@ -23,7 +77,11 @@ export function stripArtifact(text: string): string {
   let t = text.replace(FENCE, "");
   t = t.replace(/```vdform\s*\n[\s\S]*?```/gi, ""); // form renders in canvas, not chat
   t = t.replace(/```vddesignsystem\s*\n[\s\S]*?```/gi, "（design system 规范已生成）");
-  const openIdx = t.search(/```(html|vdform|vddesignsystem)/i);
+  t = t.replace(/```vddstokens\s*\n[\s\S]*?```/gi, ""); // token contract stored, not shown in chat
+  t = t.replace(/```vdlive\s*\n[\s\S]*?```/gi, "（可刷新的 Live 设计已生成）");
+  // mddoc may contain inner ``` fences; it's the last deliverable, so strip to end
+  t = t.replace(/```mddoc\s*\n[\s\S]*/i, "（文档已生成）");
+  const openIdx = t.search(/```(html|vdform|vddesignsystem|vddstokens|vdlive|mddoc)/i);
   if (openIdx !== -1) t = t.slice(0, openIdx) + "\n正在生成设计…";
   // Drop leading markdown heading markers (the "#### <name>" artifact title
   // line and any prose headings) so the chat reads as plain conversation.
@@ -42,11 +100,22 @@ export function hasOpenFence(text: string): boolean {
 
 // ---- Clarifying-question forms (```vdform blocks) --------------------------
 
+// A rich aesthetic-direction card: a palette swatch row + live type samples +
+// a mood line, so choosing a "look" is visual instead of textual.
+export interface DirectionCard {
+  label: string;
+  palette: string[];
+  displayFont?: string;
+  bodyFont?: string;
+  mood?: string;
+  references?: string[];
+}
+
 export interface FormQuestion {
   id: string;
   label: string;
-  type: "chips" | "palette" | "text";
-  options?: (string | { label: string; colors: string[] })[];
+  type: "chips" | "palette" | "text" | "direction";
+  options?: (string | { label: string; colors: string[] } | DirectionCard)[];
   decide?: boolean;
   other?: boolean;
   optional?: boolean;
@@ -76,12 +145,47 @@ export function stripForm(text: string): string {
   return text.replace(FORM_FENCE, "").trim();
 }
 
+// ---- Live artifact spec block (```vdlive) -----------------------------------
+
+export type LiveSourceSpec =
+  | { type: "http_json"; url: string; mapping?: { from: string; to: string }[] }
+  | { type: "model_prompt"; prompt: string };
+
+export interface LiveSpec {
+  title: string;
+  template: string; // HTML with {{data.path}} holes
+  data: unknown;
+  source?: LiveSourceSpec;
+}
+
+const LIVE_FENCE = /```vdlive\s*\n([\s\S]*?)```/i;
+
+export function extractLiveSpec(text: string): LiveSpec | null {
+  const m = text.match(LIVE_FENCE);
+  if (!m) return null;
+  try {
+    const p = JSON.parse(m[1]);
+    if (p && typeof p.template === "string") return p as LiveSpec;
+  } catch {
+    /* incomplete stream or bad json */
+  }
+  return null;
+}
+
 // ---- Design-system spec block (```vddesignsystem) ----------------------------
 
 const DS_FENCE = /```vddesignsystem\s*\n([\s\S]*?)```/i;
+const DS_TOKENS_FENCE = /```vddstokens\s*\n([\s\S]*?)```/i;
 
 export function extractDesignSystemSpec(text: string): string | null {
   const m = text.match(DS_FENCE);
+  return m ? m[1].trim() : null;
+}
+
+// The machine-readable :root {} token contract emitted alongside the prose
+// spec. Persisted as DesignSystem.tokensCss and injected as a binding contract.
+export function extractDesignSystemTokens(text: string): string | null {
+  const m = text.match(DS_TOKENS_FENCE);
   return m ? m[1].trim() : null;
 }
 

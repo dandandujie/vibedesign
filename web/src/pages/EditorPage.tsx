@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { t } from "../lib/i18n";
 import { ChatMessage, Meta, streamChat, saveDesignSystem } from "../lib/api";
-import { extractArtifact, extractForm, extractProps, extractDesignSystemSpec } from "../lib/artifact";
-import { ArtifactVersion, SelectedInfo } from "../lib/types";
+import { extractArtifact, extractDeliverable, extractForm, extractProps, extractDesignSystemSpec, extractDesignSystemTokens, stripWorkingAttrs, extractLiveSpec } from "../lib/artifact";
+import { LiveArtifact, createLiveArtifact, getLiveArtifact } from "../lib/liveApi";
+import { LiveArtifactViewer } from "../components/LiveArtifactViewer";
+import { ArtifactVersion, SelectedInfo, RectMap, PinTarget } from "../lib/types";
 import { Project, CommentPin, getProject, saveProject, deleteProject, newProject } from "../lib/projects";
 import { ChatPanel } from "../components/ChatPanel";
 import { Canvas, CanvasHandle } from "../components/Canvas";
@@ -11,9 +13,11 @@ import { SharePopover } from "../components/SharePopover";
 import { TweaksPanel, TweaksAsk } from "../components/TweaksPanel";
 import { QuestionFormView } from "../components/QuestionFormView";
 import { CommentsPanel } from "../components/CommentsPanel";
+import { AnnotateDrawOverlay, Mark, ANNOTATE_ACCENT } from "../components/AnnotateDrawOverlay";
 import { EditPanel } from "../components/EditPanel";
 import { EditTool } from "../components/EditToolbar";
 import { PresentOverlay } from "../components/PresentOverlay";
+import { PalettePopover } from "../components/PalettePopover";
 import { SkillsModal } from "../components/SkillsModal";
 import { SkillEntry } from "../lib/skillCatalog";
 import {
@@ -58,6 +62,10 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
   const [projMenu, setProjMenu] = useState(false);
   const [undoStack, setUndoStack] = useState<string[]>([]);
   const [redoStack, setRedoStack] = useState<string[]>([]);
+  const [pinRects, setPinRects] = useState<RectMap>({}); // live positions of comment pins
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [drawAnnotate, setDrawAnnotate] = useState(false); // visual-annotation draw mode
+  const [liveArt, setLiveArt] = useState<LiveArtifact | null>(null); // active Live artifact
 
   const canvasRef = useRef<CanvasHandle>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -164,22 +172,66 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
         onDone: () => {
           setStreaming(false);
           const buf = bufRef.current;
-          const art = extractArtifact(buf);
-          if (art) {
-            const v: ArtifactVersion = { id: crypto.randomUUID(), html: art, label: labelFrom(buf), createdAt: Date.now() };
-            setProj((prev) => (prev ? { ...prev, artifacts: [...prev.artifacts, v], activeVersionId: v.id } : prev));
+          const deliverable = extractDeliverable(buf);
+          if (deliverable) {
+            const art = deliverable.html;
+            const lastUser = [...sendMessages].reverse().find((m) => m.role === "user");
+            const promptSnippet = lastUser ? lastUser.content.split(/```|\n（/)[0].trim().slice(0, 60) : undefined;
+            setProj((prev) => {
+              if (!prev) return prev;
+              const prevArts = prev.artifacts;
+              const last = prevArts[prevArts.length - 1];
+              // dedup: an identical re-generation just re-activates the last version
+              if (last && last.html === art) {
+                return { ...prev, activeVersionId: last.id, liveArtifactId: null };
+              }
+              const v: ArtifactVersion = {
+                id: crypto.randomUUID(),
+                html: art,
+                label: deliverable.title,
+                createdAt: Date.now(),
+                kind: deliverable.kind,
+                source: "ai",
+                ...(promptSnippet ? { prompt: promptSnippet } : {}),
+              };
+              return { ...prev, artifacts: [...prevArts, v], activeVersionId: v.id, liveArtifactId: null };
+            });
             setEditDraft(null);
             setDirty(false);
+            setLiveArt(null); // a static artifact supersedes any live one
+          }
+
+          // A Live artifact spec (```vdlive) → persist server-side + render it.
+          const liveSpec = extractLiveSpec(buf);
+          if (liveSpec) {
+            void createLiveArtifact({
+              projectId,
+              title: liveSpec.title || (proj?.name ?? "Live artifact"),
+              templateHtml: liveSpec.template,
+              dataJson: liveSpec.data ?? {},
+              source: liveSpec.source,
+            })
+              .then((la) => {
+                setLiveArt(la);
+                patch({ liveArtifactId: la.id });
+                setToast("Live 设计已生成，可点「刷新」更新数据");
+              })
+              .catch((e) => setError(e instanceof Error ? e.message : String(e)));
           }
           // DS setup flow: persist the spec block as a reusable design system.
           const dsSpec = extractDesignSystemSpec(buf);
           if (dsSpec) {
+            const dsTokens = extractDesignSystemTokens(buf);
             setProj((prev) => {
               if (prev) {
                 const dsName = prev.name.replace(/\s*·\s*Design System$/i, "") || "Design system";
-                void saveDesignSystem({ id: crypto.randomUUID().slice(0, 8), name: dsName, content: dsSpec, updatedAt: 0 }).then(
-                  () => setToast(`Design system「${dsName}」已保存，可在首页选用`),
-                );
+                void saveDesignSystem({
+                  id: crypto.randomUUID().slice(0, 8),
+                  name: dsName,
+                  content: dsSpec,
+                  tokensCss: dsTokens ?? undefined,
+                  updatedAt: 0,
+                }).then(() => setToast(`Design system「${dsName}」已保存，可在首页选用`));
               }
               return prev;
             });
@@ -282,7 +334,14 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
   const saveVersion = async () => {
     if (!canvasRef.current || !proj) return;
     const html = await canvasRef.current.serialize();
-    const v: ArtifactVersion = { id: crypto.randomUUID(), html, label: "手动微调", createdAt: Date.now() };
+    const last = artifacts[artifacts.length - 1];
+    if (last && last.html === html) {
+      setEditDraft(null);
+      setDirty(false);
+      setToast("与最新版本相同，未新建");
+      return;
+    }
+    const v: ArtifactVersion = { id: crypto.randomUUID(), html, label: "手动微调", createdAt: Date.now(), source: "manual" };
     patch({ artifacts: [...artifacts, v], activeVersionId: v.id });
     setEditDraft(null);
     setDirty(false);
@@ -326,6 +385,44 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
 
   // ---- Comments -------------------------------------------------------------
   const comments = proj?.comments ?? [];
+
+  // A3-2: live-following pins. Re-query target rects from the iframe whenever
+  // the annotate tool, comments, selection, artifact or viewport change. The
+  // iframe rAF-throttles viewport events, so scroll/resize follow smoothly.
+  const refreshPins = async () => {
+    if (tool !== "annotate" || !canvasRef.current) { setPinRects({}); return; }
+    const targets: PinTarget[] = comments
+      .filter((c) => !c.resolved && c.path)
+      .map((c) => ({ id: c.id, vid: c.vid, path: c.path }));
+    if (!targets.length) { setPinRects({}); return; }
+    setPinRects(await canvasRef.current.getRects(targets));
+  };
+  const refreshPinsRef = useRef(refreshPins);
+  refreshPinsRef.current = refreshPins;
+  const onViewport = useRef(() => void refreshPinsRef.current()).current;
+
+  useEffect(() => {
+    void refreshPinsRef.current();
+  }, [tool, proj?.comments, reloadNonce, selected, canvasHtml]);
+
+  // Load the active Live artifact when the project references one.
+  useEffect(() => {
+    const id = proj?.liveArtifactId;
+    if (!id) {
+      setLiveArt(null);
+      return;
+    }
+    if (liveArt?.id === id) return;
+    let stale = false;
+    void getLiveArtifact(id).then((la) => {
+      if (!stale) setLiveArt(la);
+    });
+    return () => {
+      stale = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [proj?.liveArtifactId]);
+
   const resolveComment = (id: string) => patch({ comments: comments.map((c) => (c.id === id ? { ...c, resolved: true } : c)) });
   const deleteComment = (id: string) => patch({ comments: comments.filter((c) => c.id !== id) });
   const addGlobalComment = (text: string) =>
@@ -334,8 +431,10 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
     const open = comments.filter((c) => !c.resolved);
     if (!open.length || !canvasRef.current) return;
     const html = await canvasRef.current.serialize();
-    const list = open.map((c, i) => `${i + 1}. ${c.path ? `元素 \`${c.path}\`：` : ""}${c.text}`).join("\n");
-    const content = `请处理以下画布评论：\n${list}\n\n（这是当前设计的完整 HTML，请在此基础上精确修改并重新输出完整文档）\n\n\`\`\`html\n${html}\n\`\`\``;
+    const list = open.map((c, i) => renderCommentTarget(c, i)).join("\n");
+    const content =
+      `${SCOPE_RULE}\n\n请逐条处理以下画布评论（每条只改它点名的元素）：\n${list}\n\n` +
+      `（这是当前设计的完整 HTML，请在此基础上精确修改并重新输出完整文档）\n\n\`\`\`html\n${html}\n\`\`\``;
     patch({ comments: comments.map((c) => ({ ...c, resolved: true })) });
     setTool(null);
     runTurn([...messages, { role: "user", content }]);
@@ -344,24 +443,57 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
   const sendTargeted = async (instruction: string, pin?: CommentPin, images?: string[]) => {
     if (!canvasRef.current || !proj) return;
     const html = await canvasRef.current.serialize();
-    const where = selected ? `选中元素：\`${selected.path}\`（<${selected.tag}>，文本："${selected.text.slice(0, 80)}"）\n` : "";
-    const content = `${where}要求：${instruction}\n\n（这是当前设计的完整 HTML，请在此基础上精确修改并重新输出完整文档）\n\n\`\`\`html\n${html}\n\`\`\``;
+    const targetBlock = selected ? renderTarget(selected) + "\n\n" : "";
+    const content =
+      `${SCOPE_RULE}\n\n${targetBlock}要求：${instruction}\n\n` +
+      `（这是当前设计的完整 HTML，请在此基础上精确修改并重新输出完整文档）\n\n\`\`\`html\n${html}\n\`\`\``;
     if (pin) patch({ comments: [...(proj.comments ?? []), pin] });
     setDirty(false);
     clearSelection();
     runTurn([...messages, { role: "user", content, ...(images?.length ? { images } : {}) }]);
   };
 
+  const pinCtx = (): Pick<CommentPin, "vid" | "ctx"> =>
+    selected ? { vid: selected.vid || undefined, ctx: { tag: selected.tag, text: selected.text.slice(0, 120) } } : {};
+
+  // A3-3: composite the drawn marks onto a screenshot and send it to the model.
+  const sendVisualAnnotation = async (marks: Mark[]) => {
+    if (!canvasRef.current || !marks.length) return;
+    // Capture <html> (the whole viewport), not <body> — a centered/narrow body
+    // would mis-scale the marks, which are in viewport coords.
+    const base = await canvasRef.current.exportPng("html", 2);
+    if (!base) { setToast("截图失败，无法发送标注"); return; }
+    const { x: ox, y: oy, dw } = await canvasRef.current.getScroll();
+    const html = await canvasRef.current.serialize();
+    const composite = await compositeMarks(base, marks, ox, oy, dw);
+    setDrawAnnotate(false);
+    setTool(null);
+    const content =
+      `我在设计截图上用橙色标注（框 / 箭头 / 涂画）圈出了要修改的地方。请对照截图理解每处标注的意图，只改标注涉及的部分，精确修改并重新输出完整 HTML 文档。\n\n` +
+      `\`\`\`html\n${html}\n\`\`\``;
+    runTurn([...messages, { role: "user", content, images: [composite] }]);
+  };
+
   const addCommentOnly = (text: string) => {
     if (!selected || !proj) return;
     patch({
-      comments: [...comments, { id: crypto.randomUUID(), path: selected.path, text, resolved: false, createdAt: Date.now() }],
+      comments: [
+        ...comments,
+        { id: crypto.randomUUID(), path: selected.path, ...pinCtx(), text, resolved: false, createdAt: Date.now() },
+      ],
     });
     clearSelection();
   };
   const submitCommentToClaude = (text: string, images?: string[]) => {
     if (!selected) return;
-    const pin: CommentPin = { id: crypto.randomUUID(), path: selected.path, text, resolved: false, createdAt: Date.now() };
+    const pin: CommentPin = {
+      id: crypto.randomUUID(),
+      path: selected.path,
+      ...pinCtx(),
+      text,
+      resolved: false,
+      createdAt: Date.now(),
+    };
     sendTargeted(text, pin, images);
   };
 
@@ -373,6 +505,8 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
   const switchTool = (t: CanvasTool) => {
     setTool((cur) => (cur === t ? null : t));
     setEditTool("select");
+    setPaletteOpen(false);
+    setDrawAnnotate(false);
     canvasRef.current?.postCmd({ __vd_cmd: "drawMode", tool: null });
     clearSelection();
   };
@@ -392,6 +526,11 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
     // one shape per activation, then back to select (Figma-like)
     changeEditTool("select");
   };
+
+  // Inline text editing (in-canvas). The bridge applies the edit to the live
+  // DOM directly; we snapshot the pre-edit state for undo, then just mark dirty.
+  const onTextEditStart = () => void snapshot();
+  const onTextCommit = () => setDirty(true);
 
   // window.claude.complete from prototypes → non-streaming completion.
   const onClaudeRequest = (reqId: number, prompt: string) => {
@@ -423,7 +562,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
 
   const openInNewTab = () => {
     if (!canvasHtml) return;
-    const blob = new Blob([canvasHtml], { type: "text/html" });
+    const blob = new Blob([stripWorkingAttrs(canvasHtml)], { type: "text/html" });
     window.open(URL.createObjectURL(blob), "_blank");
   };
 
@@ -532,6 +671,8 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
             onDelete={deleteComment}
             onAddGlobal={addGlobalComment}
             onSendAllToClaude={sendAllComments}
+            onToggleDraw={() => { setDrawAnnotate((v) => !v); clearSelection(); }}
+            drawing={drawAnnotate}
             onClose={() => switchTool("annotate")}
           />
         ) : (
@@ -589,6 +730,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
             >
               {artifacts.map((v, i) => (
                 <option key={v.id} value={v.id}>
+                  {v.source === "manual" ? "✎ " : v.source === "restore" ? "↩ " : v.source === "ai" ? "🤖 " : ""}
                   {(proj.name || "Design").slice(0, 14)} · v{i + 1} {v.label ? `(${v.label})` : ""}
                 </option>
               ))}
@@ -623,6 +765,24 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
             ✎ {t("Edit")}
           </button>
           <div style={{ position: "relative" }}>
+            <button
+              className={`tool-toggle ${paletteOpen ? "on" : ""}`}
+              onClick={() => setPaletteOpen((v) => !v)}
+              disabled={!canvasHtml || streaming}
+              title={t("一键换配色（色相平移）")}
+            >
+              ◐ {t("换肤")}
+            </button>
+            {paletteOpen && (
+              <PalettePopover
+                onShift={(h) => { canvasRef.current?.postCmd({ __vd_cmd: "palette", hueDelta: h }); setDirty(true); }}
+                onReset={() => canvasRef.current?.postCmd({ __vd_cmd: "paletteReset" })}
+                onSave={saveVersion}
+                onClose={() => setPaletteOpen(false)}
+              />
+            )}
+          </div>
+          <div style={{ position: "relative" }}>
             <button className="tool-toggle" onClick={() => setPresentMenu((v) => !v)} disabled={!canvasHtml || streaming}>
               ▶ {t("Present")} <ChevronDown size={12} />
             </button>
@@ -656,7 +816,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
             )}
           </div>
           <SharePopover
-            artifactHtml={activeVersion?.html ?? null}
+            artifactHtml={activeVersion ? stripWorkingAttrs(activeVersion.html) : null}
             projectName={proj.name}
             exportPng={(sel, scale) => canvasRef.current?.exportPng(sel, scale) ?? Promise.resolve(null)}
           />
@@ -666,7 +826,9 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
         </div>
 
         <div className="canvas-stage">
-          {pendingForm ? (
+          {liveArt && !streaming ? (
+            <LiveArtifactViewer live={liveArt} providerId={meta?.activeProviderId} onChanged={setLiveArt} />
+          ) : pendingForm ? (
             <QuestionFormView form={pendingForm} onSubmit={submitFormAnswers} />
           ) : (
             <Canvas
@@ -674,11 +836,15 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
               ref={canvasRef}
               html={canvasHtml}
               refineMode={refineActive}
+              textEdit={tool === "edit" && editTool === "select" && !streaming}
               dimmed={tool === "annotate" && !selected}
               streaming={streaming}
               awaitingArtifact={awaitingArtifact}
               onSelected={setSelected}
               onDrawn={onDrawn}
+              onTextEditStart={onTextEditStart}
+              onTextCommit={onTextCommit}
+              onViewport={onViewport}
               onClaudeRequest={onClaudeRequest}
             />
           )}
@@ -700,7 +866,35 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
             <TweaksAsk onSubmit={askTweaks} onCancel={() => setTool(null)} />
           ))}
 
-        {tool === "annotate" && selected && !streaming && (
+        {tool === "annotate" &&
+          canvasHtml &&
+          (() => {
+            // measure the frame once, not per pin (each getBoundingClientRect forces reflow)
+            const stage = stageRef.current;
+            const frame = stage?.querySelector(".canvas-frame") as HTMLElement | null;
+            if (!stage || !frame) return null;
+            const fa = frame.getBoundingClientRect();
+            const sa = stage.getBoundingClientRect();
+            const offL = fa.left - sa.left;
+            const offT = fa.top - sa.top;
+            return comments.map((c, i) => {
+              if (c.resolved || !c.path) return null;
+              const r = pinRects[c.id];
+              if (!r || r.y + r.h < 0 || r.y > fa.height) return null; // scrolled out of the frame
+              return (
+                <div
+                  key={c.id}
+                  className="pin-badge persistent"
+                  style={{ left: offL + r.x + r.w - 10, top: Math.max(0, offT + r.y - 10) }}
+                  title={c.text}
+                >
+                  {i + 1}
+                </div>
+              );
+            });
+          })()}
+
+        {tool === "annotate" && selected && !streaming && !drawAnnotate && (
           <CommentPopover
             selected={selected}
             frameOffset={frameOffset}
@@ -710,11 +904,30 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
             onCancel={clearSelection}
           />
         )}
+
+        {tool === "annotate" &&
+          drawAnnotate &&
+          canvasHtml &&
+          !streaming &&
+          (() => {
+            const stage = stageRef.current;
+            const frame = stage?.querySelector(".canvas-frame") as HTMLElement | null;
+            if (!stage || !frame) return null;
+            const fa = frame.getBoundingClientRect();
+            const sa = stage.getBoundingClientRect();
+            return (
+              <AnnotateDrawOverlay
+                box={{ left: fa.left - sa.left, top: fa.top - sa.top, width: fa.width, height: fa.height }}
+                onSend={sendVisualAnnotation}
+                onClose={() => setDrawAnnotate(false)}
+              />
+            );
+          })()}
       </div>
 
       {presenting && canvasHtml && (
         <PresentOverlay
-          html={canvasHtml}
+          html={stripWorkingAttrs(canvasHtml)}
           title={proj.name}
           fullscreen={presenting === "fullscreen"}
           onExit={() => setPresenting(null)}
@@ -730,7 +943,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
               if (canvasHtml) {
                 const w = window.open("", "_blank");
                 if (w) {
-                  w.document.write(canvasHtml);
+                  w.document.write(stripWorkingAttrs(canvasHtml));
                   w.document.close();
                   setTimeout(() => w.print(), 400);
                 }
@@ -745,8 +958,78 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
   );
 }
 
-function labelFrom(text: string): string {
-  const m = text.match(/^####\s+(.+)$/m);
-  if (m) return m[1].trim().slice(0, 40);
-  return "设计";
+// Hard scope constraint prepended to element-targeted edits, so the model does
+// not silently restructure siblings / parent layout / global CSS / tokens.
+const SCOPE_RULE =
+  "只修改下面点名（<target>）的元素本身。不要改动它的兄弟节点、父级布局、全局 CSS 或 design tokens；" +
+  "若某处修改必须触及点名元素之外，请先停下说明并询问，不要擅自扩大改动范围。";
+
+// A structured target block for a live selection: stable id + selector + current
+// text + key computed styles + position — so the model edits exactly one element.
+function renderTarget(info: SelectedInfo): string {
+  const s = info.styles;
+  return (
+    `<target${info.vid ? ` vid="${info.vid}"` : ""} selector="${info.path}" tag="${info.tag}" kind="${info.kind}">\n` +
+    `  当前文本："${info.text.slice(0, 160)}"\n` +
+    `  关键样式：color ${s.color}; background ${s.backgroundColor}; font ${s.fontSize}px/${s.fontWeight}; ` +
+    `padding ${s.paddingTop}/${s.paddingRight}/${s.paddingBottom}/${s.paddingLeft}px; radius ${s.borderRadius}px\n` +
+    `  位置：${Math.round(info.rect.x)},${Math.round(info.rect.y)} ${Math.round(info.rect.w)}×${Math.round(info.rect.h)}\n` +
+    `</target>`
+  );
+}
+
+// Draw the annotation marks onto the artifact screenshot. Marks are in canvas-
+// viewport coords; the screenshot is the full document, so we offset by scroll
+// and scale by (image width / document width) to stay DPR-independent.
+async function compositeMarks(baseUrl: string, marks: Mark[], ox: number, oy: number, dw: number): Promise<string> {
+  const img = new Image();
+  img.src = baseUrl;
+  await img.decode();
+  const cv = document.createElement("canvas");
+  cv.width = img.naturalWidth;
+  cv.height = img.naturalHeight;
+  const ctx = cv.getContext("2d")!;
+  ctx.drawImage(img, 0, 0);
+  const s = dw > 0 ? img.naturalWidth / dw : 2;
+  ctx.strokeStyle = ANNOTATE_ACCENT;
+  ctx.fillStyle = ANNOTATE_ACCENT;
+  ctx.lineWidth = 2.5 * s;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  const X = (v: number) => (v + ox) * s;
+  const Y = (v: number) => (v + oy) * s;
+  for (const m of marks) {
+    if (m.type === "rect") {
+      ctx.strokeRect(X(m.x), Y(m.y), m.w * s, m.h * s);
+    } else if (m.type === "path") {
+      ctx.beginPath();
+      m.pts.forEach((p, i) => (i ? ctx.lineTo(X(p[0]), Y(p[1])) : ctx.moveTo(X(p[0]), Y(p[1]))));
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(X(m.x1), Y(m.y1));
+      ctx.lineTo(X(m.x2), Y(m.y2));
+      ctx.stroke();
+      const ang = Math.atan2(m.y2 - m.y1, m.x2 - m.x1);
+      const L = 12 * s;
+      const ax = X(m.x2), ay = Y(m.y2);
+      ctx.beginPath();
+      ctx.moveTo(ax, ay);
+      ctx.lineTo(ax - L * Math.cos(ang - 0.44), ay - L * Math.sin(ang - 0.44));
+      ctx.lineTo(ax - L * Math.cos(ang + 0.44), ay - L * Math.sin(ang + 0.44));
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+  return cv.toDataURL("image/png");
+}
+
+// A lighter target line for a stored comment pin (no live style snapshot).
+function renderCommentTarget(c: CommentPin, i: number): string {
+  const attrs = [c.vid ? `vid="${c.vid}"` : "", c.path ? `selector="${c.path}"` : "", c.ctx?.tag ? `tag="${c.ctx.tag}"` : ""]
+    .filter(Boolean)
+    .join(" ");
+  const cur = c.ctx?.text ? ` 当前文本："${c.ctx.text}"` : "";
+  const target = attrs ? `<target ${attrs}/>` : "（整体设计）";
+  return `${i + 1}. ${target}${cur}\n   要求：${c.text}`;
 }

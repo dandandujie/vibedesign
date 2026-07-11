@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { t } from "../lib/i18n";
-import { QuestionForm, FormQuestion } from "../lib/artifact";
+import { QuestionForm, FormQuestion, DirectionCard } from "../lib/artifact";
 
 interface Props {
   form: QuestionForm;
@@ -67,6 +67,39 @@ function Question({
         value={value === "__other__" ? "" : (value ?? "")}
         onChange={(e) => onPick(e.target.value)}
       />
+    );
+  }
+
+  if (q.type === "direction") {
+    const cards = (q.options ?? []) as DirectionCard[];
+    return (
+      <div className="qform-directions">
+        {cards.map((c, i) => {
+          const v = c.label || String(i + 1);
+          return (
+            <button key={v} className={`qform-direction ${value === v ? "on" : ""}`} onClick={() => onPick(v)}>
+              <div className="dir-swatches">
+                {(c.palette ?? []).slice(0, 5).map((col, j) => (
+                  <span key={j} className="dir-swatch" style={{ background: col }} />
+                ))}
+              </div>
+              <div className="dir-samples">
+                <span className="dir-aa" style={{ fontFamily: c.displayFont || "Georgia, serif" }}>Aa</span>
+                <span className="dir-body" style={{ fontFamily: c.bodyFont || "system-ui, sans-serif" }}>Ag</span>
+              </div>
+              <div className="dir-meta">
+                <span className="dir-label">{c.label}</span>
+                {c.mood && <span className="dir-mood">{c.mood}</span>}
+              </div>
+            </button>
+          );
+        })}
+        {q.decide && (
+          <button className={`qform-chip ${value === DECIDE ? "on" : ""}`} onClick={() => onPick(DECIDE)}>
+            {t(DECIDE)}
+          </button>
+        )}
+      </div>
     );
   }
 

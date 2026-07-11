@@ -4,7 +4,9 @@ import { ArtifactVersion } from "./types";
 // Comment pin attached to an element in the canvas (Comment mode).
 export interface CommentPin {
   id: string;
-  path: string; // css path of target element
+  path: string; // css path of target element (fallback locator)
+  vid?: string; // stable data-vd-id of the target (preferred locator)
+  ctx?: { tag?: string; text?: string }; // element snapshot at pin time, for model context
   text: string;
   resolved: boolean;
   createdAt: number;
@@ -16,6 +18,7 @@ export interface Project {
   messages: ChatMessage[];
   artifacts: ArtifactVersion[];
   activeVersionId?: string | null;
+  liveArtifactId?: string | null; // set when the latest output is a Live artifact
   comments?: CommentPin[];
   designSystemId?: string | null;
   favorite?: boolean;

@@ -12,6 +12,10 @@ export interface ArtifactVersion {
   html: string;
   label: string;
   createdAt: number;
+  kind?: "html" | "markdown"; // deliverable renderer
+  source?: "ai" | "manual" | "restore"; // provenance
+  prompt?: string; // user prompt snippet that produced an AI version
+  restoreFromVersionId?: string;
 }
 
 export interface Project {
@@ -19,6 +23,7 @@ export interface Project {
   name: string;
   messages: ChatMessage[];
   artifacts: ArtifactVersion[];
+  liveArtifactId?: string | null;
   favorite?: boolean;
   updatedAt: number;
 }
@@ -73,7 +78,9 @@ export function deleteProject(id: string): void {
 export interface DesignSystem {
   id: string;
   name: string;
-  content: string;
+  content: string; // prose spec (the 9-section DESIGN.md), injected as intent/voice
+  tokensCss?: string; // optional machine-readable :root {} token contract (pasted verbatim)
+  category?: string; // optional grouping label
   updatedAt: number;
 }
 

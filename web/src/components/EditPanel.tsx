@@ -458,7 +458,7 @@ function TypographySection({ selected, onApplyStyle, onApplyText }: Props) {
   return (
     <div className="ep-section">
       <div className="ep-head">{t("Type")}</div>
-      {selected.editable && (
+      {(selected.kind === "text" || selected.kind === "link") && (
         <textarea
           className="ep-text"
           rows={2}

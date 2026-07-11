@@ -1,3 +1,8 @@
+---
+craft: [anti-ai-slop, typography, color]
+triggers: [polish, final pass, refine, quality gate]
+---
+
 # Polish Pass: End-of-Design Quality Gate
 
 Run a comprehensive quality check before a design is shown to stakeholders or shipped. **A polished and an unpolished design are the same idea executed at different levels of care — and the gap is what people actually see.** This is the umbrella for the four narrower review skills; use it as the final gate before delivery.

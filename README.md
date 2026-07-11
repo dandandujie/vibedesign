@@ -11,6 +11,7 @@
 
 - 复刻真值来自**实地考察** claude.ai/design（`docs/field-study.md`、`docs/tokens-field.md`——含整套扒下来的 `--om-*` design tokens），流程规格见 `docs/replication-spec.md`。
 - 设计大脑用开源的 [Claude Design 系统提示词 + 14 skills](https://github.com/Trystan-SA/claude-design-system-prompt) 驱动。
+- 功能升级参考了开源的 [open-design](https://github.com/nexu-io/open-design) 项目（craft 法则层、Live Artifacts、HyperFrames、换肤、导出契约等，均自研实现，见 `docs/open-design-upgrade-plan.md`）。
 - 最终形态：Electron 跨端桌面应用（Win + Mac），当前为本地 web 开发形态。
 
 ## 架构

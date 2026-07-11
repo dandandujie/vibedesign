@@ -1,3 +1,8 @@
+---
+craft: [typography, typography-hierarchy, color, anti-ai-slop]
+triggers: [deck, slides, presentation, pitch, keynote]
+---
+
 # Make a Deck: Slide Presentation in HTML
 
 Build a slide presentation as a single HTML file with fixed-size slides (typically 1920×1080, 16:9) that letterbox to any viewport. Use this when the user asks for a deck, presentation, slides, or pitch. Don't hand-roll the scaling — use the deck shell starter.

@@ -24,7 +24,22 @@ import {
   deleteDesignSystem,
   DesignSystem,
 } from "./storage.js";
+import {
+  listLiveArtifacts,
+  getLiveArtifact,
+  saveLiveArtifact,
+  deleteLiveArtifact,
+  refreshLiveArtifact,
+  rollbackLiveArtifact,
+  readRefreshLog,
+  recoverStaleLiveRefreshes,
+  initLiveArtifactAudit,
+  renderLiveHtml,
+  LiveArtifact,
+} from "./liveArtifacts.js";
+import { renderMotionVideo, MotionRenderOpts } from "./motionRender.js";
 import { moduleDir } from "./paths.js";
+import { randomUUID } from "node:crypto";
 
 const app = express();
 app.use(cors());
@@ -149,6 +164,107 @@ app.delete("/api/design-systems/:id", (req, res) => {
   res.json({ ok: true });
 });
 
+// ---- Live artifacts ----------------------------------------------------------
+
+app.get("/api/live-artifacts", (req, res) => {
+  res.json(listLiveArtifacts(typeof req.query.projectId === "string" ? req.query.projectId : undefined));
+});
+
+app.get("/api/live-artifacts/:id", (req, res) => {
+  const a = getLiveArtifact(req.params.id);
+  if (!a) return res.status(404).json({ error: "not found" });
+  res.json(a);
+});
+
+app.post("/api/live-artifacts", (req, res) => {
+  const b = req.body as Partial<LiveArtifact>;
+  if (!b?.projectId || !b.templateHtml) return res.status(400).json({ error: "projectId and templateHtml required" });
+  const now = Date.now();
+  const a: LiveArtifact = {
+    id: b.id || `live_${randomUUID().slice(0, 8)}`,
+    projectId: b.projectId,
+    title: b.title || "Live artifact",
+    templateHtml: b.templateHtml,
+    dataJson: b.dataJson ?? {},
+    source: b.source,
+    refreshStatus: "idle",
+    createdAt: now,
+    updatedAt: now,
+  };
+  try {
+    renderLiveHtml(a.templateHtml, a.dataJson); // validate before persisting
+  } catch (err) {
+    return res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+  const saved = saveLiveArtifact(a);
+  initLiveArtifactAudit(saved); // baseline snapshot + 'created' audit entry
+  res.json(saved);
+});
+
+app.get("/api/live-artifacts/:id/refreshes", (req, res) => {
+  if (!getLiveArtifact(req.params.id)) return res.status(404).json({ error: "not found" });
+  res.json(readRefreshLog(req.params.id));
+});
+
+app.post("/api/live-artifacts/:id/rollback", (req, res) => {
+  try {
+    const refreshId = String(req.body?.refreshId ?? "");
+    if (!refreshId) return res.status(400).json({ error: "refreshId required" });
+    res.json(rollbackLiveArtifact(req.params.id, refreshId));
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+app.get("/api/live-artifacts/:id/preview", (req, res) => {
+  const a = getLiveArtifact(req.params.id);
+  if (!a) return res.status(404).send("not found");
+  try {
+    const html = renderLiveHtml(a.templateHtml, a.dataJson);
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader(
+      "Content-Security-Policy",
+      "default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src 'self' data: blob:; font-src data:; base-uri 'none'; form-action 'none'",
+    );
+    res.send(html);
+  } catch (err) {
+    res.status(500).send(String(err instanceof Error ? err.message : err));
+  }
+});
+
+app.post("/api/live-artifacts/:id/refresh", async (req, res) => {
+  try {
+    const pid = (req.body?.providerId as string) || getActiveProviderId();
+    const provider = pid ? getProvider(pid) : undefined;
+    const a = await refreshLiveArtifact(req.params.id, provider);
+    res.json(a);
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+app.delete("/api/live-artifacts/:id", (req, res) => {
+  deleteLiveArtifact(req.params.id);
+  res.json({ ok: true });
+});
+
+// ---- Motion video render (HyperFrames advanced) ------------------------------
+// Headless Chromium seeks the artifact's animation timeline frame-by-frame,
+// ffmpeg encodes the frames to MP4/WebM. Slow (seconds); returns the bytes.
+
+app.post("/api/render-motion", async (req, res) => {
+  const { html, ...opts } = req.body as { html?: string } & MotionRenderOpts;
+  if (!html || typeof html !== "string") return res.status(400).json({ error: "html required" });
+  try {
+    const { buffer, mime, ext } = await renderMotionVideo(html, opts);
+    res.setHeader("Content-Type", mime);
+    res.setHeader("Content-Disposition", `attachment; filename="motion.${ext}"`);
+    res.send(buffer);
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
 app.get("/api/projects", (_req, res) => res.json(listProjects()));
 app.get("/api/projects/:id", (req, res) => {
   const p = getProject(req.params.id);
@@ -229,5 +345,10 @@ app.post("/api/chat", async (req, res) => {
 
 app.listen(PORT, () => {
   const n = getProviders().length;
-  console.log(`[vibedesign] server on http://localhost:${PORT}  (${n} provider${n === 1 ? "" : "s"} configured)`);
+  const recovered = recoverStaleLiveRefreshes(); // clear locks/statuses from a crashed run
+  console.log(
+    `[vibedesign] server on http://localhost:${PORT}  (${n} provider${n === 1 ? "" : "s"} configured` +
+      (recovered ? `, recovered ${recovered} stale refresh${recovered === 1 ? "" : "es"}` : "") +
+      `)`,
+  );
 });

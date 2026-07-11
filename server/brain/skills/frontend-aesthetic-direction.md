@@ -1,3 +1,8 @@
+---
+craft: [typography, typography-hierarchy, color]
+triggers: [aesthetic, look and feel, art direction, visual direction, mood]
+---
+
 # Frontend Aesthetic Direction: Commit to a Look When No Brand Exists
 
 Establish an aesthetic direction (typography, color, density, mood, component style) when the user is designing without an existing brand or design system. Use this **before** hi-fi work in a greenfield context: mocking hi-fi from scratch without committing to an aesthetic is the fastest path to AI-template output. Pick a direction first, then design within it.

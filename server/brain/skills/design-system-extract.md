@@ -1,3 +1,8 @@
+---
+craft: [color, typography]
+triggers: [design system, tokens, extract tokens, brand, style guide]
+---
+
 # Design System Extract: Pull Tokens from Sources
 
 Extract design tokens (color, typography, spacing, radii, shadow) from a brand reference, codebase, or screenshots, and emit a structured tokens file. Use this when starting design work that should match an existing visual language. Once tokens exist, future designs reference them — keeping the system consistent without re-asking the user for values.
@@ -65,6 +70,20 @@ Write a `tokens.css` — or match the source's format and naming convention (`to
   --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 ```
+
+### Delivery form (this canvas app)
+
+Emit the system as two fenced blocks so the host can store both the intent and
+the machine-readable contract:
+
+1. A ` ```vddesignsystem ` block — the prose spec, organized as a 9-section
+   DESIGN.md: (1) visual theme & atmosphere, (2) color palette & roles,
+   (3) typography, (4) component styles, (5) layout principles, (6) depth &
+   layering, (7) Do's & Don'ts, (8) responsive, (9) agent usage guide.
+2. A ` ```vddstokens ` block — the `:root { … }` token contract above, with real
+   hex values, standard names, and no gaps. Every future design pastes this
+   `:root` verbatim into its first `<style>`, so treat it as the binding source
+   of truth and never write raw hex outside it.
 
 ## Phase 4: Document findings
 

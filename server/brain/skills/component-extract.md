@@ -1,3 +1,8 @@
+---
+craft: [color, typography]
+triggers: [components, extract components, reusable, componentize]
+---
+
 # Component Extract: Identify Reusable Components from a Design
 
 Walk a design and identify the reusable components hidden inside it; emit a component inventory the user can turn into a component library or design system. Use this when the user has a finished page or flow and wants to "make it a system," "build a component library," or hand off structured pieces.

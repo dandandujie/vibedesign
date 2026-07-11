@@ -1,3 +1,8 @@
+---
+craft: [anti-ai-slop, color, typography]
+triggers: [ai slop, generic, looks ai, de-slop, too ai]
+---
+
 # AI Slop Check: Detect and Fix Generic AI Aesthetics
 
 Review the current design for the visual tropes that signal "AI-generated template," and fix any found. These patterns read as default, not intentional — a design that looks like a hundred other AI outputs fails to look like the user's design.

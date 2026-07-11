@@ -1,3 +1,8 @@
+---
+craft: [typography, typography-hierarchy, color, state-coverage, anti-ai-slop]
+triggers: [prototype, interactive, clickable, app, flow]
+---
+
 # Make a Prototype: Interactive Clickable Prototype
 
 Build a working interactive prototype — clickable, navigable, with real state and feedback. Use this when the user asks for a prototype, mockup, demo, or "make it interactive." **Prototypes interact** — static screenshots strung together with `<a>` tags don't count; the point is to test the flow with real clicking, typing, validating, succeeding, failing.

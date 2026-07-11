@@ -1,3 +1,8 @@
+---
+craft: [accessibility-baseline, state-coverage]
+triggers: [accessibility, a11y, wcag, contrast, keyboard, screen reader]
+---
+
 # Accessibility Audit: WCAG and Inclusive Design Review
 
 Review the current design for accessibility issues across contrast, semantic structure, keyboard navigation, motion, and forms. Fix any issues found. **Good accessibility is good design — it benefits everyone.**

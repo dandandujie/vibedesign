@@ -9,11 +9,13 @@ interface Props {
   onDelete: (id: string) => void;
   onAddGlobal: (text: string) => void; // comment not tied to an element
   onSendAllToClaude: () => void;
+  onToggleDraw?: () => void; // enter/exit visual-annotation draw mode
+  drawing?: boolean;
   onClose: () => void;
 }
 
 // Annotate mode swaps the chat pane for this Comments panel (field study §6).
-export function CommentsPanel({ comments, onResolve, onDelete, onAddGlobal, onSendAllToClaude, onClose }: Props) {
+export function CommentsPanel({ comments, onResolve, onDelete, onAddGlobal, onSendAllToClaude, onToggleDraw, drawing, onClose }: Props) {
   const [text, setText] = useState("");
   const open = comments.filter((c) => !c.resolved);
 
@@ -22,6 +24,11 @@ export function CommentsPanel({ comments, onResolve, onDelete, onAddGlobal, onSe
       <div className="chat-head">
         <span style={{ fontSize: 12, fontWeight: 600 }}>{t("Comments")}</span>
         <div style={{ flex: 1 }} />
+        {onToggleDraw && (
+          <button className={`iconbtn ${drawing ? "on" : ""}`} onClick={onToggleDraw} title={t("画笔标注（在截图上圈画）")}>
+            ✎
+          </button>
+        )}
         <button className="iconbtn" onClick={onClose} title={t("退出评论模式")}>
           ✕
         </button>

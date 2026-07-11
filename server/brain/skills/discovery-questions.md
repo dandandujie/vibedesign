@@ -1,3 +1,7 @@
+---
+triggers: [discovery, questions, kickoff, clarify, requirements]
+---
+
 # Discovery Questions: Kickoff Question Protocol
 
 Run a structured question round at the start of new or ambiguous design work. **Asking good questions is the single biggest lever for design quality** — bad designs come from missing context, not missing skill.

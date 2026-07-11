@@ -49,6 +49,8 @@ export interface DesignSystem {
   id: string;
   name: string;
   content: string;
+  tokensCss?: string; // optional :root {} token contract, pasted verbatim into artifacts
+  category?: string;
   updatedAt: number;
 }
 

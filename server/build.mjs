@@ -13,6 +13,10 @@ await build({
   outfile: "dist/server.cjs",
   logOverride: { "empty-import-meta": "silent" }, // guarded by typeof __dirname
   define: { __APP_VERSION__: JSON.stringify(rootVersion) },
+  // Heavy native/binary deps for the HyperFrames video render — resolved from
+  // node_modules at runtime instead of inlined. A production/Electron package
+  // that wants motion video must ship these (+ a Chromium) alongside the bundle.
+  external: ["playwright", "playwright-core", "ffmpeg-static"],
 });
 
 rmSync("dist/brain", { recursive: true, force: true });
