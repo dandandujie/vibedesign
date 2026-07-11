@@ -165,12 +165,19 @@ export interface DirectionCard {
 export interface FormQuestion {
   id: string;
   label: string;
-  type: "chips" | "palette" | "text" | "direction";
+  type: "chips" | "palette" | "text" | "direction" | "number" | "toggle";
   options?: (string | { label: string; colors: string[] } | DirectionCard)[];
   decide?: boolean;
   other?: boolean;
   optional?: boolean;
   hint?: string;
+  // number: a stepper with bounds; toggle: a boolean switch (on/off labels).
+  min?: number;
+  max?: number;
+  step?: number;
+  defaultValue?: number | string;
+  on?: string; // toggle: label for the ON state (default "是")
+  off?: string; // toggle: label for the OFF state (default "否")
 }
 
 export interface QuestionForm {

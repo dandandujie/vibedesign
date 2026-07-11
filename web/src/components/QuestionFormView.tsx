@@ -20,7 +20,10 @@ export function QuestionFormView({ form, onSubmit }: Props) {
 
   const submit = () => {
     const lines = form.questions.map((q) => {
-      const v = answers[q.id] === "__other__" ? others[q.id] || "" : answers[q.id];
+      let v = answers[q.id] === "__other__" ? others[q.id] || "" : answers[q.id];
+      // number/toggle fall back to their declared default when left untouched
+      if (!v && (q.type === "number" || q.type === "toggle") && q.defaultValue != null) v = String(q.defaultValue);
+      if (q.type === "toggle" && !v) v = q.off ?? "否";
       return `- ${q.id}: ${v || (q.optional ? "(skipped)" : DECIDE)}`;
     });
     onSubmit(`Questions answered:\n${lines.join("\n")}`);
@@ -67,6 +70,34 @@ function Question({
         value={value === "__other__" ? "" : (value ?? "")}
         onChange={(e) => onPick(e.target.value)}
       />
+    );
+  }
+
+  if (q.type === "number") {
+    const cur = value ?? (q.defaultValue != null ? String(q.defaultValue) : "");
+    return (
+      <input
+        className="qform-number"
+        type="number"
+        min={q.min}
+        max={q.max}
+        step={q.step ?? 1}
+        placeholder={q.defaultValue != null ? String(q.defaultValue) : ""}
+        value={cur}
+        onChange={(e) => onPick(e.target.value)}
+      />
+    );
+  }
+
+  if (q.type === "toggle") {
+    const on = q.on ?? "是";
+    const off = q.off ?? "否";
+    const cur = value ?? (q.defaultValue != null ? String(q.defaultValue) : off);
+    return (
+      <div className="qform-toggle" role="group">
+        <button className={`qform-chip ${cur === off ? "on" : ""}`} onClick={() => onPick(off)}>{off}</button>
+        <button className={`qform-chip ${cur === on ? "on" : ""}`} onClick={() => onPick(on)}>{on}</button>
+      </div>
     );
   }
 

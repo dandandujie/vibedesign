@@ -1423,6 +1423,21 @@ code,
   margin-top: 6px;
   background: var(--bg-surface);
 }
+.qform-number {
+  width: 140px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  padding: 8px 10px;
+  font-size: 14.5px;
+  font-family: inherit;
+  margin-top: 6px;
+  background: var(--bg-surface);
+}
+.qform-toggle {
+  display: inline-flex;
+  gap: 6px;
+  margin-top: 6px;
+}
 .qform-other {
   border: 1px solid var(--border-default);
   border-radius: 999px;
