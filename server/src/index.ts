@@ -38,6 +38,7 @@ import {
   LiveArtifact,
 } from "./liveArtifacts.js";
 import { renderMotionVideo, MotionRenderOpts } from "./motionRender.js";
+import { renderScreenshot, ShotOpts } from "./screenshotRender.js";
 import { moduleDir } from "./paths.js";
 import { randomUUID } from "node:crypto";
 
@@ -259,6 +260,20 @@ app.post("/api/render-motion", async (req, res) => {
     const { buffer, mime, ext } = await renderMotionVideo(html, opts);
     res.setHeader("Content-Type", mime);
     res.setHeader("Content-Disposition", `attachment; filename="motion.${ext}"`);
+    res.send(buffer);
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+// Pixel-perfect PNG / PDF via headless Chromium (real fonts, WebGL, CJK).
+app.post("/api/render-screenshot", async (req, res) => {
+  const { html, ...opts } = req.body as { html?: string } & ShotOpts;
+  if (!html || typeof html !== "string") return res.status(400).json({ error: "html required" });
+  try {
+    const { buffer, mime, ext } = await renderScreenshot(html, opts);
+    res.setHeader("Content-Type", mime);
+    res.setHeader("Content-Disposition", `attachment; filename="design.${ext}"`);
     res.send(buffer);
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });

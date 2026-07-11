@@ -24,8 +24,9 @@ the right.
 
 ## Hard rules
 Mono caption carries the trivia. Restrained palette (cream + one accent red + ink
-black). All inline SVG / CSS, no external assets. Reading order: year → sprite →
-caption. Animate with `@keyframes` only (no JS) so it captures cleanly to video.
+black). Real CDN webfonts are welcome; keep the pixel GRAPHICS as inline SVG / CSS
+(no external images). Reading order: year → sprite → caption. Animate with
+`@keyframes` only (no JS) so it captures cleanly to video.
 
 ## Runtime
 ONE self-contained `html` document; tokens from the attached design system or an

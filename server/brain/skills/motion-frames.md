@@ -25,6 +25,8 @@ reads as a still poster.
   can be captured to video by the canvas's video export).
 - Paused at frame 0 it must still be a complete poster; ≥3 layers moving at
   different speeds; accent used once.
+- Real CDN webfonts are welcome for the headline; keep all animated GRAPHICS as
+  inline SVG/CSS so the loop captures deterministically to video.
 
 ## Runtime
 ONE self-contained `html` document; tokens from the attached design system or an

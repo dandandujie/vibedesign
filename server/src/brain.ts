@@ -8,6 +8,7 @@ const BRAIN_DIR = existsSync(join(moduleDir, "brain"))
   ? join(moduleDir, "brain")
   : join(moduleDir, "..", "brain");
 const SKILLS_DIR = join(BRAIN_DIR, "skills");
+const SEED_DIR = join(BRAIN_DIR, "skill-seeds"); // starter templates a skill copies from
 
 // The Claude Design system prompt (20 chapters) — the design "brain".
 const SYSTEM_PROMPT = readFileSync(join(BRAIN_DIR, "system-prompt.md"), "utf8");
@@ -19,6 +20,7 @@ export interface Skill {
   body: string; // markdown procedure (frontmatter stripped)
   craft: string[]; // craft slugs to inject with this skill (frontmatter `craft:`)
   triggers: string[]; // discovery phrases (frontmatter `triggers:`)
+  seed?: string; // optional starter HTML the model copies from (skill-seeds/<id>.html)
 }
 
 // Minimal, zero-dep front-matter parser. Skill files use a FLAT form (no nested
@@ -63,12 +65,14 @@ function loadSkills(): Record<string, Skill> {
     const { data, body } = parseFrontmatter(raw);
     const titleMatch = body.match(/^#\s+(.+)$/m);
     const name = typeof data.name === "string" ? data.name : "";
+    const seedFile = join(SEED_DIR, `${id}.html`);
     out[id] = {
       id,
       title: name || (titleMatch ? titleMatch[1].trim() : id),
       body,
       craft: Array.isArray(data.craft) ? data.craft : [],
       triggers: Array.isArray(data.triggers) ? data.triggers : [],
+      ...(existsSync(seedFile) ? { seed: readFileSync(seedFile, "utf8") } : {}),
     };
   }
   return out;
@@ -222,6 +226,19 @@ export function buildSystem(
       `\n\n---\n\n# Active skill: ${skill.title}\n\n` +
       `The user invoked this skill. Follow its procedure for this turn:\n\n` +
       skill.body;
+    // 3b. Starter seed — a prebuilt template (token system / device frame / deck
+    // runtime already wired) the skill copies from and modifies.
+    if (skill.seed && skill.seed.trim()) {
+      system +=
+        `\n\n## Starter template (copy this and modify)\n\n` +
+        `This skill ships a starter you should build FROM — its token system, layout ` +
+        `scaffold, and any device frame / pager runtime are already wired. Start from it, ` +
+        `swap in the real content/design, and re-output the COMPLETE modified document. Do ` +
+        `not discard its structure or invent your own scaffolding.\n\n` +
+        "```html\n" +
+        skill.seed.trim() +
+        "\n```";
+    }
   }
   return system;
 }

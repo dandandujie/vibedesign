@@ -23,15 +23,18 @@ Question close · Big quote · Before/after · Lead image + side text.
 Tag every slide `light / dark / hero-light / hero-dark`. Never 3+ consecutive
 slides of the same tone. For 8+ slides include ≥1 hero-dark and ≥1 hero-light, and
 insert a hero slide every 3–4. Serif for headings, sans for body, mono for
-metadata. **Icons = inline monoline SVG, never emoji.** CJK headlines ≤5 chars,
-`white-space: nowrap`. Images = standard ratios via fixed `height` (not
-`aspect-ratio`); use styled placeholder blocks, no external images/fonts.
+metadata. Load real webfonts from a CDN (e.g. Google Fonts: Noto Serif SC /
+Playfair Display / Noto Sans SC / Inter / IBM Plex Mono) — the canvas iframe
+allows external fonts. **Icons = inline monoline SVG, never emoji.** CJK
+headlines ≤5 chars, `white-space: nowrap`. Images = standard ratios via fixed
+`height` (not `aspect-ratio`); styled placeholder blocks for imagery.
 
-## Runtime (inline, sandbox-safe)
+## Runtime
 Deliver ONE self-contained `html` deck with an **inline** pager script: one
 `.slide` per logical page, one `.active` at a time; ← / → and wheel and touch
-advance; a bottom dot rail (`aria-current`); Esc shows an index grid. Use a
-system font stack — NO webfont/CDN/WebGL (the sandbox blocks them). Do not use
-`scrollIntoView`; move slides with `transform`.
+advance; a bottom dot rail (`aria-current`); Esc shows an index grid. A subtle
+**WebGL** fluid/shader background is welcome (the iframe supports WebGL) — keep it
+behind the content and pausable. Do not use `scrollIntoView`; move slides with
+`transform`.
 
 _(Artifact shape adapted from open-design's `guizang-ppt` deck template.)_

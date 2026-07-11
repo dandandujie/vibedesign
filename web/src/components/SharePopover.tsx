@@ -73,6 +73,26 @@ export function SharePopover({ artifactHtml, projectName, exportPng }: Props) {
     download(`${safe}.md`, "```html\n" + artifactHtml + "\n```\n", "text/markdown");
   };
 
+  // Pixel-perfect export via the server's headless Chromium (real fonts / WebGL /
+  // CJK) — beats the client screenshot for decks and font-heavy designs.
+  const exportPixel = async (format: "png" | "pdf") => {
+    if (!artifactHtml) return;
+    setBusy(format === "pdf" ? "pxpdf" : "pxpng");
+    try {
+      const r = await fetch("/api/render-screenshot", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ html: artifactHtml, format, width: 1280, scale: 2 }),
+      });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? "渲染失败");
+      download(`${safe}.${format}`, await r.blob(), format === "pdf" ? "application/pdf" : "image/png");
+    } catch (e) {
+      alert(`像素级导出失败：${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const exportVideo = async () => {
     if (!artifactHtml) return;
     setBusy("video");
@@ -255,6 +275,22 @@ export function SharePopover({ artifactHtml, projectName, exportPng }: Props) {
             <span className="tx">
               <span className="t">{t("Video (MP4)")}</span>
               <span className="d">{busy === "video" ? "渲染中…（无头逐帧）" : "Render the animation as MP4"}</span>
+            </span>
+            <span className="go">{t("Download")}</span>
+          </button>
+          <button className="export-item" onClick={() => exportPixel("png")} disabled={!artifactHtml || busy === "pxpng"}>
+            <span className="ic">🖼</span>
+            <span className="tx">
+              <span className="t">{t("PNG（像素级）")}</span>
+              <span className="d">{busy === "pxpng" ? "渲染中…（无头 Chromium）" : "Headless render — real fonts / WebGL"}</span>
+            </span>
+            <span className="go">{t("Download")}</span>
+          </button>
+          <button className="export-item" onClick={() => exportPixel("pdf")} disabled={!artifactHtml || busy === "pxpdf"}>
+            <span className="ic">📄</span>
+            <span className="tx">
+              <span className="t">{t("PDF（像素级）")}</span>
+              <span className="d">{busy === "pxpdf" ? "渲染中…（无头 Chromium）" : "Print-perfect PDF (handles CJK)"}</span>
             </span>
             <span className="go">{t("Download")}</span>
           </button>

@@ -29,10 +29,10 @@ never on the visible slide. A key (e.g. "S") toggles a notes overlay for the
 current slide. (Multi-window presenter view isn't available in the sandbox — a
 toggled notes layer is the fallback.)
 
-## Runtime (inline, sandbox-safe)
+## Runtime
 ONE self-contained `html` deck with an **inline** pager: ← / → keyboard first,
-wheel/touch, a dot rail, Esc index. System font stack — NO webfont/CDN. Tokens
-from the attached design system or an inline `:root` set. Move slides with
-`transform`, not `scrollIntoView`.
+wheel/touch, a dot rail, Esc index. Real CDN webfonts are fine (the iframe allows
+them). Tokens from the attached design system or an inline `:root` set. Move
+slides with `transform`, not `scrollIntoView`.
 
 _(Artifact shape adapted from open-design's `html-ppt` deck template.)_
