@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { t } from "../lib/i18n";
 import { ProjectListItem, listProjects, getProject } from "../lib/projects";
 import { fetchGithubRepo } from "../lib/api";
 import { parseDesignFile } from "../lib/designFileImport";
@@ -153,7 +154,7 @@ export function PlusMenu({ onAttachFiles, onAttachContext, onOpenSkills, onOpenD
           />
           <button className="pm-item" onClick={() => figRef.current?.click()}>
             <span className="ic">⬆</span> Upload .fig / .pen file
-            <span className="pm-tail">本地解析</span>
+            <span className="pm-tail">{t("本地解析")}</span>
           </button>
           <div className="pm-sep" />
           <button className="pm-item" onClick={() => { onOpenDesignSystem(); onClose(); }}>
@@ -162,9 +163,9 @@ export function PlusMenu({ onAttachFiles, onAttachContext, onOpenSkills, onOpenD
           <button className="pm-item" onClick={() => { onOpenSkills(); onClose(); }}>
             <span className="ic">🛠</span> Skills
           </button>
-          <button className="pm-item" disabled title="即将支持">
+          <button className="pm-item" disabled title={t("即将支持")}>
             <span className="ic">⊞</span> Manage connectors
-            <span className="pm-tail">即将支持</span>
+            <span className="pm-tail">{t("即将支持")}</span>
           </button>
           {err && <div className="pm-err">{err}</div>}
         </>
@@ -172,7 +173,7 @@ export function PlusMenu({ onAttachFiles, onAttachContext, onOpenSkills, onOpenD
 
       {view === "projects" && (
         <>
-          <div className="pm-label">选择要引用的项目</div>
+          <div className="pm-label">{t("选择要引用的项目")}</div>
           <div style={{ maxHeight: 220, overflowY: "auto" }}>
             {projects.map((p) => (
               <button key={p.id} className="pm-item" onClick={() => pickProject(p.id)}>
@@ -181,14 +182,14 @@ export function PlusMenu({ onAttachFiles, onAttachContext, onOpenSkills, onOpenD
             ))}
           </div>
           <button className="pm-item muted" onClick={() => setView("root")}>
-            ← 返回
+            {t("← 返回")}
           </button>
         </>
       )}
 
       {view === "github" && (
         <>
-          <div className="pm-label">公开仓库 URL</div>
+          <div className="pm-label">{t("公开仓库 URL")}</div>
           <div style={{ padding: "4px 10px 8px", display: "flex", flexDirection: "column", gap: 8 }}>
             <input
               autoFocus
@@ -206,7 +207,7 @@ export function PlusMenu({ onAttachFiles, onAttachContext, onOpenSkills, onOpenD
             />
             <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
               <button className="btn ghost small" onClick={() => setView("root")}>
-                返回
+                {t("返回")}
               </button>
               <button className="btn primary small" disabled={busy || !repoUrl.trim()} onClick={connectGithub}>
                 {busy ? "拉取中…" : "拉取设计文件"}

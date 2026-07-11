@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { t } from "../lib/i18n";
 import { TweakGroup, TweakProp } from "../lib/artifact";
 
 interface PanelProps {
@@ -85,15 +86,15 @@ export function TweaksPanel({ groups, onSetVar, onAskMore, onSaveVersion, onClos
       <div style={{ display: "flex", gap: 6, marginTop: 2 }}>
         {dirty && (
           <button className="btn small" onClick={() => { onSaveVersion(); setDirty(false); }}>
-            存为新版本
+            {t("存为新版本")}
           </button>
         )}
         <button className="btn ghost small" onClick={() => setAsking(true)}>
-          ＋ 添加控件
+          {t("＋ 添加控件")}
         </button>
       </div>
 
-      {asking && <TweaksAsk inline onSubmit={(t) => { setAsking(false); onAskMore(t); }} onCancel={() => setAsking(false)} />}
+      {asking && <TweaksAsk inline onSubmit={(d) => { setAsking(false); onAskMore(d); }} onCancel={() => setAsking(false)} />}
     </div>
   );
 }
@@ -118,7 +119,7 @@ export function TweaksAsk({ inline, onSubmit, onCancel }: AskProps) {
     <>
       <input
         ref={ref}
-        placeholder="描述想调什么，如：标题字号和 CTA 颜色"
+        placeholder={t("描述想调什么，如：标题字号和 CTA 颜色")}
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
@@ -128,10 +129,10 @@ export function TweaksAsk({ inline, onSubmit, onCancel }: AskProps) {
       />
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, marginTop: 6 }}>
         <button className="btn ghost small" onClick={onCancel}>
-          取消
+          {t("取消")}
         </button>
         <button className="btn primary small" disabled={!text.trim()} onClick={() => onSubmit(text.trim())}>
-          生成控件
+          {t("生成控件")}
         </button>
       </div>
     </>

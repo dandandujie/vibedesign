@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
+import { t } from "../lib/i18n";
 import { Meta, DesignSystem, listDesignSystems, saveDesignSystem, deleteDesignSystem } from "../lib/api";
 import { Project, ProjectListItem, listProjects, deleteProject, getProject, newProject, saveProject } from "../lib/projects";
 import { filesToDataUrls } from "../components/ChatPanel";
 import { ModelPicker } from "../components/ModelPicker";
 import { ChangelogButton } from "../components/ChangelogButton";
+import { LangToggle } from "../components/LangToggle";
 import { CodebaseMenu, CodebaseCtx } from "../components/CodebaseMenu";
 import {
   PlusIcon,
@@ -139,7 +141,7 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
   const duplicate = async (id: string) => {
     const src = await getProject(id);
     if (!src) return;
-    const copy: Project = { ...src, ...newProject(`${src.name} 副本`), messages: src.messages, artifacts: src.artifacts, comments: src.comments, designSystemId: src.designSystemId };
+    const copy: Project = { ...src, ...newProject(`${src.name} ${t("副本")}`), messages: src.messages, artifacts: src.artifacts, comments: src.comments, designSystemId: src.designSystemId };
     await saveProject(copy);
     refresh();
   };
@@ -174,9 +176,10 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
           <span className="beta">Beta</span>
         </div>
         <div className="spacer" />
+        <LangToggle />
         <ChangelogButton />
         <button className="btn ghost small" onClick={onOpenSettings}>
-          模型服务
+          {t("模型服务")}
         </button>
       </header>
 
@@ -227,7 +230,7 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
                 e.target.value = "";
               }}
             />
-            <button className="iconbtn" title="添加图片" onClick={() => fileRef.current?.click()}>
+            <button className="iconbtn" title={t("添加图片")} onClick={() => fileRef.current?.click()}>
               <PlusIcon size={16} />
             </button>
             <div className="pill-select" title="Design system">
@@ -251,7 +254,7 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
               <span className="k">Model</span>
               <ModelPicker meta={meta} onMetaChanged={onMetaChanged} onOpenSettings={onOpenSettings} align="down" />
             </div>
-            <button className="send" disabled={!prompt.trim()} onClick={() => create(prompt.trim())} title="开始设计">
+            <button className="send" disabled={!prompt.trim()} onClick={() => create(prompt.trim())} title={t("开始设计")}>
               <ArrowUp size={17} />
             </button>
           </div>
@@ -260,10 +263,10 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
         <div className="template-strip">
           <div className="cap">Start with a template…</div>
           <div className="template-cards">
-            {TEMPLATES.map((t) => (
-              <button key={t.name} className="template-card" onClick={() => create(undefined, t.name)}>
-                <div className="mini">{t.art}</div>
-                {t.name}
+            {TEMPLATES.map((tp) => (
+              <button key={tp.name} className="template-card" onClick={() => create(undefined, tp.name)}>
+                <div className="mini">{tp.art}</div>
+                {tp.name}
               </button>
             ))}
           </div>
@@ -296,7 +299,7 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
             <div className="project-rows">
               {filtered.length === 0 && (
                 <p className="muted" style={{ padding: "14px 6px", fontSize: 13.5 }}>
-                  还没有项目。从上面的输入框开始第一个设计。
+                  {t("还没有项目。从上面的输入框开始第一个设计。")}
                 </p>
               )}
               {filtered.map((p) => (
@@ -352,7 +355,7 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
                           className="danger"
                           onClick={async () => {
                             setRowMenu(null);
-                            if (confirm(`删除项目「${p.name}」？`)) {
+                            if (confirm(`${t("删除项目")}「${p.name}」？`)) {
                               await deleteProject(p.id);
                               refresh();
                             }
@@ -376,7 +379,7 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
                     <span className="name">{d.name}</span>
                     <span className="spacer" />
                     <button className="btn ghost small" onClick={() => setEditingDS({ ...d })}>
-                      编辑
+                      {t("编辑")}
                     </button>
                     <button
                       className="btn ghost small"
@@ -386,7 +389,7 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
                         refresh();
                       }}
                     >
-                      删除
+                      {t("删除")}
                     </button>
                   </div>
                   <p className="ds-preview">{d.content.slice(0, 160)}</p>
@@ -396,7 +399,7 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
                 <div className="ds-card" style={{ borderColor: "var(--accent)" }}>
                   <input
                     className="ds-name"
-                    placeholder="名称"
+                    placeholder={t("名称")}
                     value={editingDS.name}
                     onChange={(e) => setEditingDS({ ...editingDS, name: e.target.value })}
                   />
@@ -408,7 +411,7 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
                   />
                   <div className="form-actions">
                     <button className="btn ghost small" onClick={() => setEditingDS(null)}>
-                      取消
+                      {t("取消")}
                     </button>
                     <button
                       className="btn primary small"
@@ -419,7 +422,7 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
                         refresh();
                       }}
                     >
-                      保存
+                      {t("保存")}
                     </button>
                   </div>
                 </div>
@@ -434,11 +437,11 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
 
           {tab === "templates" && (
             <div className="project-rows">
-              {TEMPLATES.map((t) => (
-                <div key={t.name} className="project-row" onClick={() => create(undefined, t.name)}>
-                  <span className="thumb" style={{ display: "grid", placeItems: "center", padding: 3 }}>{t.art}</span>
-                  <span className="name">{t.name}</span>
-                  <span className="time">模板</span>
+              {TEMPLATES.map((tp) => (
+                <div key={tp.name} className="project-row" onClick={() => create(undefined, tp.name)}>
+                  <span className="thumb" style={{ display: "grid", placeItems: "center", padding: 3 }}>{tp.art}</span>
+                  <span className="name">{tp.name}</span>
+                  <span className="time">{t("模板")}</span>
                 </div>
               ))}
             </div>
@@ -472,7 +475,7 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
                   <span className="d">Connect to GitHub, upload assets, or describe your brand.</span>
                 </span>
               </button>
-              <button className="ds-option" disabled title="以后拓展">
+              <button className="ds-option" disabled title={t("以后拓展")}>
                 <span className="ic green">⌨</span>
                 <span className="tx">
                   <span className="t">
@@ -495,8 +498,8 @@ function deriveName(prompt: string): string {
 
 function timeAgo(ts: number): string {
   const s = Math.floor((Date.now() - ts) / 1000);
-  if (s < 60) return "刚刚";
-  if (s < 3600) return `${Math.floor(s / 60)} 分钟前`;
-  if (s < 86400) return `${Math.floor(s / 3600)} 小时前`;
-  return `${Math.floor(s / 86400)} 天前`;
+  if (s < 60) return t("刚刚");
+  if (s < 3600) return `${Math.floor(s / 60)} ${t("分钟前")}`;
+  if (s < 86400) return `${Math.floor(s / 3600)} ${t("小时前")}`;
+  return `${Math.floor(s / 86400)} ${t("天前")}`;
 }

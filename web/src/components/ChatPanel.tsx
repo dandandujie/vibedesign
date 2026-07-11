@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { t } from "../lib/i18n";
 import { ChatMessage, Meta } from "../lib/api";
 import { stripArtifact, extractArtifact, extractForm } from "../lib/artifact";
 import { renderMarkdown } from "../lib/markdown";
@@ -89,10 +90,10 @@ export function ChatPanel({
   };
 
   const submit = () => {
-    const t = input.trim();
-    if ((!t && pendingImages.length === 0 && contexts.length === 0) || streaming) return;
+    const txt = input.trim();
+    if ((!txt && pendingImages.length === 0 && contexts.length === 0) || streaming) return;
     const ctxText = contexts.map((c) => c.text).join("");
-    onSend((t || "（见附件）") + ctxText, pendingImages.length ? pendingImages : undefined);
+    onSend((txt || t("（见附件）")) + ctxText, pendingImages.length ? pendingImages : undefined);
     setInput("");
     setPendingImages([]);
     setContexts([]);
@@ -105,11 +106,11 @@ export function ChatPanel({
         {messages.length === 0 && (
           <div className="empty">
             <h2>Describe what you want to create</h2>
-            <p>像跟设计师对话一样描述，设计会实时出现在右侧画布。</p>
+            <p>{t("像跟设计师对话一样描述，设计会实时出现在右侧画布。")}</p>
             <div>
               {EXAMPLES.map((e) => (
-                <button key={e} className="chip" onClick={() => onSend(e)} disabled={!hasProvider}>
-                  {e}
+                <button key={e} className="chip" onClick={() => onSend(t(e))} disabled={!hasProvider}>
+                  {t(e)}
                 </button>
               ))}
             </div>
@@ -222,7 +223,7 @@ export function ChatPanel({
               }}
             />
             <div style={{ position: "relative" }}>
-              <button className="iconbtn" title="附加内容" onClick={() => setPlusOpen((v) => !v)}>
+              <button className="iconbtn" title={t("附加内容")} onClick={() => setPlusOpen((v) => !v)}>
                 <PlusIcon size={16} />
               </button>
               {plusOpen && (
@@ -238,7 +239,7 @@ export function ChatPanel({
             <div className="grow" />
             <ModelPicker meta={meta} onMetaChanged={onMetaChanged} onOpenSettings={onOpenSettings} align="up" />
             {streaming ? (
-              <button className="send" onClick={onStop} title="停止" style={{ background: "var(--text-secondary)" }}>
+              <button className="send" onClick={onStop} title={t("停止")} style={{ background: "var(--text-secondary)" }}>
                 <StopIcon size={15} />
               </button>
             ) : (
@@ -246,7 +247,7 @@ export function ChatPanel({
                 className="send"
                 onClick={submit}
                 disabled={(!input.trim() && !pendingImages.length && !contexts.length) || !hasProvider}
-                title="发送"
+                title={t("发送")}
               >
                 <ArrowUp size={15} />
               </button>

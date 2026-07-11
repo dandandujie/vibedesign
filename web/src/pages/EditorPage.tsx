@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { t } from "../lib/i18n";
 import { ChatMessage, Meta, streamChat, saveDesignSystem } from "../lib/api";
 import { extractArtifact, extractForm, extractProps, extractDesignSystemSpec } from "../lib/artifact";
 import { ArtifactVersion, SelectedInfo } from "../lib/types";
@@ -415,7 +416,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
   };
   const removeProject = async () => {
     if (!proj) return;
-    if (!confirm(`删除项目「${proj.name}」？此操作不可撤销。`)) return;
+    if (!confirm(`${t("删除项目")}「${proj.name}」？${t("此操作不可撤销。")}`)) return;
     await deleteProject(proj.id);
     location.hash = "#/";
   };
@@ -444,10 +445,10 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
       <aside className="sidebar">
         {/* Fixed sidebar header (user req #5) — survives Edit/Annotate panels */}
         <div className="side-head">
-          <AppBadge title="回到首页" onClick={() => (location.hash = "#/")} />
+          <AppBadge title={t("回到首页")} onClick={() => (location.hash = "#/")} />
           <input className="pname" value={proj.name} onChange={(e) => patch({ name: e.target.value })} spellCheck={false} />
           <div style={{ position: "relative" }}>
-            <button className="iconbtn" title="项目操作" onClick={() => setProjMenu((v) => !v)}>
+            <button className="iconbtn" title={t("项目操作")} onClick={() => setProjMenu((v) => !v)}>
               <ChevronDown size={14} />
             </button>
             {projMenu && (
@@ -469,18 +470,18 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
               </div>
             )}
           </div>
-          <button className="iconbtn" title="隐藏侧边栏" onClick={() => setCollapsed(true)}>
+          <button className="iconbtn" title={t("隐藏侧边栏")} onClick={() => setCollapsed(true)}>
             <PanelLeft size={15} />
           </button>
           <div style={{ position: "relative" }}>
-            <button className="iconbtn" title="聊天历史" onClick={() => setHistoryOpen((v) => !v)}>
+            <button className="iconbtn" title={t("聊天历史")} onClick={() => setHistoryOpen((v) => !v)}>
               <HistoryIcon size={15} />
             </button>
             {historyOpen && (
               <div className="mini-menu wide" ref={clampPop}>
                 {messages.filter((m) => m.role === "user").length === 0 && (
                   <span className="muted small" style={{ padding: "6px 10px" }}>
-                    暂无历史
+                    {t("暂无历史")}
                   </span>
                 )}
                 {messages.map((m, i) =>
@@ -554,7 +555,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
 
       <div className="canvas-wrap" ref={stageRef}>
         {collapsed && (
-          <button className="expand-side iconbtn" title="展开侧边栏" onClick={() => setCollapsed(false)}>
+          <button className="expand-side iconbtn" title={t("展开侧边栏")} onClick={() => setCollapsed(false)}>
             <ChevronRight size={15} />
           </button>
         )}
@@ -562,7 +563,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
           <div className="banner">
             <span>⚠ {error}</span>
             <button className="btn small" onClick={onOpenSettings}>
-              打开设置
+              {t("打开设置")}
             </button>
             <button className="btn ghost small" onClick={() => setError(null)}>
               ✕
@@ -571,7 +572,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
         )}
 
         <div className="canvas-head">
-          <button className="iconbtn" title="重新渲染" onClick={() => setReloadNonce((n) => n + 1)}>
+          <button className="iconbtn" title={t("重新渲染")} onClick={() => setReloadNonce((n) => n + 1)}>
             <RefreshIcon size={15} />
           </button>
           {artifacts.length > 1 ? (
@@ -584,7 +585,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
                 setDirty(false);
                 clearSelection();
               }}
-              title="版本"
+              title={t("版本")}
             >
               {artifacts.map((v, i) => (
                 <option key={v.id} value={v.id}>
@@ -659,7 +660,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
             projectName={proj.name}
             exportPng={(sel, scale) => canvasRef.current?.exportPng(sel, scale) ?? Promise.resolve(null)}
           />
-          <button className="btn small" onClick={onOpenSettings} title="模型服务（BYOK）">
+          <button className="btn small" onClick={onOpenSettings} title={t("模型服务（BYOK）")}>
             Model
           </button>
         </div>

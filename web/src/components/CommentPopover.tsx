@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { t } from "../lib/i18n";
 import { SelectedInfo } from "../lib/types";
 import { filesToDataUrls } from "./ChatPanel";
 import { XIcon } from "./icons";
@@ -86,7 +87,7 @@ export function CommentPopover({ selected, frameOffset, pinNumber, onAddComment,
               e.target.value = "";
             }}
           />
-          <button className="iconbtn" title="附图" onClick={() => fileRef.current?.click()}>
+          <button className="iconbtn" title={t("附图")} onClick={() => fileRef.current?.click()}>
             📎
           </button>
           <span style={{ flex: 1 }} />

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { t } from "../lib/i18n";
 import { clampPop } from "../lib/popover";
 
 interface Props {
@@ -73,9 +74,9 @@ export function SharePopover({ artifactHtml, projectName, exportPng }: Props) {
           <div className="access">
             <span className="sec-label">Who can access</span>
             <select defaultValue="local">
-              <option value="local">本机（local）</option>
+              <option value="local">{t("本机（local）")}</option>
               <option value="lan" disabled>
-                局域网链接（即将支持）
+                {t("局域网链接（即将支持）")}
               </option>
             </select>
             <span className="hint">Only you can see this design.</span>

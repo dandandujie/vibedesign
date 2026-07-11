@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { t } from "../lib/i18n";
 import { Meta, ProviderConfig, Effort, setActiveProvider, saveProvider } from "../lib/api";
 import { ChevronDown, ChevronRight } from "./icons";
 import { clampPop } from "../lib/popover";
@@ -69,7 +70,7 @@ export function ModelPicker({ meta, onMetaChanged, onOpenSettings, align = "up" 
             )}
           </>
         ) : (
-          <span className="mname muted">未配置模型</span>
+          <span className="mname muted">{t("未配置模型")}</span>
         )}
         <span className="chev"><ChevronDown size={12} /></span>
       </button>
@@ -84,7 +85,7 @@ export function ModelPicker({ meta, onMetaChanged, onOpenSettings, align = "up" 
                 onOpenSettings();
               }}
             >
-              <span className="ti">＋ 添加模型服务…</span>
+              <span className="ti">{t("＋ 添加模型服务…")}</span>
             </button>
           )}
           {primary.map((p) => (
@@ -132,7 +133,7 @@ export function ModelPicker({ meta, onMetaChanged, onOpenSettings, align = "up" 
               onOpenSettings();
             }}
           >
-            <span className="ti muted">管理模型服务…</span>
+            <span className="ti muted">{t("管理模型服务…")}</span>
           </button>
 
           {sub === "effort" && active?.reasoning && (

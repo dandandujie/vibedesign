@@ -2881,3 +2881,27 @@ code,
   color: var(--accent-error);
   background: var(--bg-hover);
 }
+
+/* ---- language toggle -------------------------------------------------------- */
+
+.lang-toggle {
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 13px;
+  color: var(--text-tertiary);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.lang-toggle:hover {
+  background: var(--bg-hover);
+}
+.lang-toggle .on {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+.lang-toggle .sep {
+  opacity: 0.5;
+}

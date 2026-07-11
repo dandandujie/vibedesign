@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from "react";
+import { t } from "../lib/i18n";
 import { injectInspector } from "../lib/inspector";
 import { SelectedInfo, TreeNode } from "../lib/types";
 
@@ -120,7 +121,7 @@ export const Canvas = forwardRef<CanvasHandle, Props>(function Canvas(
         <div className="canvas-empty">
           <div className="inner">
             <h2>The canvas is empty</h2>
-            <p>在左边描述你想要的设计——原型、幻灯片、落地页、one-pager。设计会实时出现在这里。</p>
+            <p>{t("在左边描述你想要的设计——原型、幻灯片、落地页、one-pager。设计会实时出现在这里。")}</p>
           </div>
         </div>
       )}

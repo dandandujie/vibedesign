@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { t } from "../lib/i18n";
 import {
   Meta,
   ProviderConfig,
@@ -42,7 +43,7 @@ export function SettingsModal({ meta, onClose, onChanged }: Props) {
     if (!editing) return;
     const e = { ...editing };
     if (!e.name.trim()) e.name = FORMATS.find((f) => f.v === e.format)?.label ?? "Provider";
-    if (!e.model.trim()) return alert("请填写模型名称（model）");
+    if (!e.model.trim()) return alert(t("请填写模型名称（model）"));
     await saveProvider(e);
     setEditing(null);
     onChanged();
@@ -64,15 +65,14 @@ export function SettingsModal({ meta, onClose, onChanged }: Props) {
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <header>
-          <h2>模型服务</h2>
+          <h2>{t("模型服务")}</h2>
           <button className="btn ghost small" onClick={onClose}>
             ✕
           </button>
         </header>
         <div className="content">
           <p className="small muted" style={{ margin: 0 }}>
-            支持 Anthropic / OpenAI（含 Responses）/ Gemini 格式，可添加任意兼容服务（自建、代理、第三方）。
-            API Key 只保存在本地服务端，不会写进浏览器。
+            {t("支持 Anthropic / OpenAI（含 Responses）/ Gemini 格式，可添加任意兼容服务（自建、代理、第三方）。 API Key 只保存在本地服务端，不会写进浏览器。")}
           </p>
 
           {meta.providers.map((p) => (
@@ -83,18 +83,18 @@ export function SettingsModal({ meta, onClose, onChanged }: Props) {
                 <span className="spacer" />
                 {p.id === meta.activeProviderId ? (
                   <span className="small" style={{ color: "var(--accent-hover)", fontWeight: 600 }}>
-                    ● 使用中
+                    ● {t("使用中")}
                   </span>
                 ) : (
                   <button className="btn small" onClick={() => activate(p.id)}>
-                    设为使用中
+                    {t("设为使用中")}
                   </button>
                 )}
                 <button className="btn ghost small" onClick={() => startEdit(p)}>
-                  编辑
+                  {t("编辑")}
                 </button>
                 <button className="btn ghost small" onClick={() => remove(p.id)}>
-                  删除
+                  {t("删除")}
                 </button>
               </div>
               <div className="small muted">
@@ -106,16 +106,16 @@ export function SettingsModal({ meta, onClose, onChanged }: Props) {
           {editing ? (
             <div className="provider-card" style={{ borderColor: "var(--accent)" }}>
               <div className="field">
-                <label>名称</label>
+                <label>{t("名称")}</label>
                 <input
                   value={editing.name}
-                  placeholder="例如：我的 Claude"
+                  placeholder={t("例如：我的 Claude")}
                   onChange={(e) => setEditing({ ...editing, name: e.target.value })}
                 />
               </div>
               <div className="grid2">
                 <div className="field">
-                  <label>格式</label>
+                  <label>{t("格式")}</label>
                   <select
                     value={editing.format}
                     onChange={(e) => {
@@ -131,7 +131,7 @@ export function SettingsModal({ meta, onClose, onChanged }: Props) {
                   </select>
                 </div>
                 <div className="field">
-                  <label>模型 model</label>
+                  <label>{t("模型 model")}</label>
                   <input
                     value={editing.model}
                     placeholder={hint}
@@ -151,12 +151,12 @@ export function SettingsModal({ meta, onClose, onChanged }: Props) {
                 <input
                   type="password"
                   value={editing.apiKey}
-                  placeholder={/^•+$/.test(editing.apiKey) ? "（保持不变）" : "sk-…"}
+                  placeholder={/^•+$/.test(editing.apiKey) ? t("（保持不变）") : "sk-…"}
                   onChange={(e) => setEditing({ ...editing, apiKey: e.target.value })}
                 />
               </div>
               <div className="field">
-                <label>一句话描述（显示在模型菜单里）</label>
+                <label>{t("一句话描述（显示在模型菜单里）")}</label>
                 <input
                   value={editing.description ?? ""}
                   placeholder="For complex tasks"
@@ -171,20 +171,20 @@ export function SettingsModal({ meta, onClose, onChanged }: Props) {
                     setEditing({ ...editing, reasoning: e.target.checked, effort: e.target.checked ? (editing.effort ?? "medium") : undefined })
                   }
                 />
-                该模型支持思考强度（Effort）控制
+                {t("该模型支持思考强度（Effort）控制")}
               </label>
               <div className="form-actions">
                 <button className="btn ghost small" onClick={() => setEditing(null)}>
-                  取消
+                  {t("取消")}
                 </button>
                 <button className="btn primary small" onClick={save}>
-                  保存
+                  {t("保存")}
                 </button>
               </div>
             </div>
           ) : (
             <button className="btn" onClick={startAdd}>
-              + 添加模型服务
+              {t("＋ 添加模型服务…")}
             </button>
           )}
         </div>

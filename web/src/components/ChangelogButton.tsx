@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { t } from "../lib/i18n";
 import { fetchVersion } from "../lib/api";
 import { clampPop } from "../lib/popover";
 
@@ -83,7 +84,7 @@ export function ChangelogButton() {
 
   const update = () => {
     if (window.vd) {
-      setUpdating("正在下载更新…");
+      setUpdating(t("开始下载…"));
       window.vd.installUpdate();
     } else if (releases[0]) {
       window.open(releases[0].html_url, "_blank");
@@ -93,26 +94,26 @@ export function ChangelogButton() {
   return (
     <div className="changelog-wrap" ref={ref}>
       <button className={`btn ghost small ${hasNew ? "pulse-new" : ""}`} onClick={() => setOpen((v) => !v)}>
-        更新日志{hasNew ? " ●" : ""}
+        {t("更新日志")}{hasNew ? " ●" : ""}
       </button>
       {open && (
         <div className="changelog-pop" ref={clampPop}>
           <div className="cl-head">
-            <span>更新日志</span>
-            <span className="muted small">当前 v{current}</span>
+            <span>{t("更新日志")}</span>
+            <span className="muted small">{t("当前")} v{current}</span>
           </div>
           {hasNew && (
             <div className="cl-update">
               <span>
-                新版本 <strong>{releases[0]?.tag_name}</strong> 可用
+                {t("新版本")} <strong>{releases[0]?.tag_name}</strong> {t("可用")}
               </span>
               <button className="btn primary small" disabled={!!updating} onClick={update}>
-                {updating ?? (window.vd ? "自动更新并重启" : "去下载")}
+                {updating ?? (window.vd ? t("自动更新并重启") : t("去下载"))}
               </button>
             </div>
           )}
           <div className="cl-list">
-            {releases.length === 0 && <p className="muted small">暂无发布记录（或无法访问 GitHub）。</p>}
+            {releases.length === 0 && <p className="muted small">{t("暂无发布记录（或无法访问 GitHub）。")}</p>}
             {releases.map((r) => (
               <div key={r.tag_name} className="cl-item">
                 <div className="cl-tag">

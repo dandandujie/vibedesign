@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { t } from "../lib/i18n";
 import { SelectedInfo, TreeNode } from "../lib/types";
 import { TweakGroup } from "../lib/artifact";
 import { TweaksPanel } from "./TweaksPanel";
@@ -262,7 +263,7 @@ function ExtraInput({
           onDone();
         }}
       >
-        应用
+        {t("应用")}
       </button>
     </div>
   );
@@ -511,7 +512,7 @@ function LayerTreeSection({ getTree, onSelectPath, selected, html }: Props) {
     };
   }, [html]);
 
-  if (!tree) return <p className="muted small">读取图层中…</p>;
+  if (!tree) return <p className="muted small">{t("读取图层中…")}</p>;
   return (
     <div className="layer-tree ep-tree">
       <TreeRow node={tree} depth={0} activePath={selected?.path ?? null} onPick={onSelectPath} />
@@ -643,7 +644,7 @@ function ExportSection({ selected, exportPng }: Props) {
     <div className="ep-section">
       <div className="ep-head">Export selection</div>
       <div className="export-preview">
-        {preview ? <img src={preview} alt="" /> : <span className="muted small">预览生成中…</span>}
+        {preview ? <img src={preview} alt="" /> : <span className="muted small">{t("预览生成中…")}</span>}
       </div>
       <div className="ep-grid2">
         <Row label="Format">
@@ -685,17 +686,17 @@ function AskTweaksInline({ onSubmit }: { onSubmit: (d: string) => void }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <p className="muted" style={{ margin: 0, lineHeight: 1.6, fontSize: 13.5 }}>
-        这个设计还没有可调控件。描述想调什么，Claude 会生成对应的滑块/色板。
+        {t("这个设计还没有可调控件。描述想调什么，Claude 会生成对应的滑块/色板。")}
       </p>
       <input
         style={{ border: "1px solid var(--border-default)", borderRadius: 8, padding: "8px 10px", fontSize: 14, fontFamily: "inherit" }}
-        placeholder="如：标题字号和 CTA 颜色"
+        placeholder={t("如：标题字号和 CTA 颜色")}
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && text.trim() && onSubmit(text.trim())}
       />
       <button className="btn primary small" style={{ alignSelf: "flex-end" }} disabled={!text.trim()} onClick={() => onSubmit(text.trim())}>
-        生成控件
+        {t("生成控件")}
       </button>
     </div>
   );

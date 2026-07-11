@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { t } from "../lib/i18n";
 import { CommentPin } from "../lib/projects";
 import { XIcon } from "./icons";
 
@@ -21,7 +22,7 @@ export function CommentsPanel({ comments, onResolve, onDelete, onAddGlobal, onSe
       <div className="chat-head">
         <span style={{ fontSize: 12, fontWeight: 600 }}>Comments</span>
         <div style={{ flex: 1 }} />
-        <button className="iconbtn" onClick={onClose} title="退出评论模式">
+        <button className="iconbtn" onClick={onClose} title={t("退出评论模式")}>
           ✕
         </button>
       </div>
@@ -41,11 +42,11 @@ export function CommentsPanel({ comments, onResolve, onDelete, onAddGlobal, onSe
               </span>
               <span style={{ flex: 1 }} />
               {!c.resolved && (
-                <button className="iconbtn" title="标记已解决" onClick={() => onResolve(c.id)}>
+                <button className="iconbtn" title={t("标记已解决")} onClick={() => onResolve(c.id)}>
                   ✓
                 </button>
               )}
-              <button className="iconbtn" title="删除" onClick={() => onDelete(c.id)}>
+              <button className="iconbtn" title={t("删除")} onClick={() => onDelete(c.id)}>
                 ✕
               </button>
             </div>
@@ -54,7 +55,7 @@ export function CommentsPanel({ comments, onResolve, onDelete, onAddGlobal, onSe
         ))}
         {open.length > 0 && (
           <button className="btn primary small" style={{ alignSelf: "flex-start" }} onClick={onSendAllToClaude}>
-            让 Claude 处理 {open.length} 条未解决评论
+            {t("让 Claude 处理")} {open.length} {t("条未解决评论")}
           </button>
         )}
       </div>
@@ -87,7 +88,7 @@ export function CommentsPanel({ comments, onResolve, onDelete, onAddGlobal, onSe
                   setText("");
                 }
               }}
-              title="添加评论"
+              title={t("添加评论")}
             >
               ↑
             </button>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Meta, fetchMeta } from "./lib/api";
+import { useLang } from "./lib/i18n";
 import { HomePage } from "./pages/HomePage";
 import { EditorPage } from "./pages/EditorPage";
 import { DsSetupPage } from "./pages/DsSetupPage";
@@ -18,6 +19,7 @@ function useRoute(): string {
 
 export function App() {
   const route = useRoute();
+  useLang(); // re-render the whole tree when the language changes
   const [meta, setMeta] = useState<Meta | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
