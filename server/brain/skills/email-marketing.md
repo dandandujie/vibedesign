@@ -1,34 +1,62 @@
 ---
+name: email-marketing
 craft: [typography, color]
-triggers: [email, email template, newsletter, product launch email, 邮件营销, 邮件模板]
+triggers: [email, email template, newsletter, email blast, product launch email, mjml, 邮件营销, 邮件模板]
 ---
 
-# Email Marketing: Brand Product Email
+# Email Marketing Skill
 
-A branded product-launch email as one self-contained HTML document — a centered
-single column that reads as "an email sitting on a page".
+Produce a single HTML email — centered, single column, no chrome around the
+email body. Treat it like a marketing artifact: one big idea, one CTA.
 
-## Frame
-600–680px centered column; tint the page background so the column floats
-(`body{background:<tint>}` + `margin: 0 auto`).
+## Workflow
 
-## Structure (in order)
-1. **Masthead** — wordmark + 3 links + a hairline underline.
-2. **Hero** — a 16:9 product image placeholder (SVG silhouette / gradient block).
-3. **Eyebrow** — small-caps accent, `·`-separated.
-4. **Headline lockup** — display, mostly uppercase, tight tracking; one word
-   given a slight `skew(-6deg)` for tension.
-5. **Body** — 2–3 sentences.
-6. **CTA** — a single pill / block button.
-7. **Spec grid** — 2×2 of big number + unit + label.
-8. **Footer** — wordmark + address + unsubscribe.
+1. **Read the active DESIGN.md** (injected above). Email leans on the display
+   font more than any other surface — pick the loudest type token in the DS
+   for the headline lockup.
+2. **Pick the brand + product** from the brief. Generate a real wordmark, a
+   real product name, and one real benefit sentence — no placeholders.
+3. **Layout**, in order, all centered inside a 600–680px column on a tinted
+   page background (so the email body looks like an email, not the page):
+   - **Masthead** — wordmark on the left + 3 short nav links (SHOP, JOURNAL,
+     MEMBERS) on the right. Thin underline.
+   - **Hero block** — a 16:9 product image placeholder. Use a DS-tinted
+     gradient or a stylized SVG silhouette of the product (shoe, bottle,
+     headphones, whatever the brief implies). Add a tiny brand stamp on the
+     top-left and a colorway tag on the bottom-left.
+   - **Eyebrow** — small caps, accent color, separated by `·` characters
+     (e.g. "NEW · MAX-CUSHION TRAINER · EMBER FLARE").
+   - **Headline lockup** — 2–3 line headline using the display font, all caps,
+     extra-tight tracking. Apply a slight skew (`transform: skew(-6deg)`) on
+     one accent word to give it a sporty parallelogram feel.
+   - **Body** — 2–3 sentence paragraph, left-aligned, body font.
+   - **Primary CTA** — solid pill or block button. One only.
+   - **Specs grid** — 2×2 grid of (big number + unit + label) callouts using
+     the display font for the numbers.
+   - **Footer** — wordmark, address line, unsubscribe + view-in-browser links.
+4. **Write** a single HTML document:
+   - `<!doctype html>` through `</html>`, CSS inline.
+   - Center the column with `margin: 0 auto`. Set `body { background: <tint> }`
+     so the email-on-page metaphor reads.
+   - No external images — use inline SVG or DS-tinted gradient blocks for the
+     product photo.
+   - `data-od-id` on the masthead, hero, headline, CTA, specs.
+5. **Self-check**:
+   - Email reads top to bottom in 8–10 seconds.
+   - One CTA. Accent appears at most twice (eyebrow + CTA, or headline word).
+   - Looks legible on a 480px window (column reflows, type drops one step).
 
-## Hard rules
-One CTA; accent ≤2 times; no external images (SVG / gradient blocks). Readable in
-8–10 seconds; reflows at ~480px.
+## Output contract
 
-## Runtime
-ONE self-contained `html` document; tokens from the attached design system or an
-inline `:root` set.
+Emit between `<artifact>` tags:
 
-_(Artifact shape adapted from open-design's `email-marketing` design template.)_
+```
+<artifact identifier="email-slug" type="text/html" title="Email — Subject Line">
+<!doctype html>
+<html>...</html>
+</artifact>
+```
+
+One sentence before the artifact, nothing after.
+
+_(Skill from open-design (Apache-2.0) — frontmatter mapped to Vibedesign's parser; delivery follows Vibedesign's runtime contract, not open-design's file-writing harness.)_

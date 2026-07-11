@@ -1,27 +1,32 @@
 ---
-craft: [accessibility-baseline, typography]
-triggers: [onboarding, new hire, first week, 入职, 新员工, 入职计划]
+name: hr-onboarding
+craft: [accessibility-baseline]
+triggers: [onboarding, new hire, first week, 入职, 新员工]
 ---
 
-# HR Onboarding: New-Hire Plan
+# HR Onboarding Skill
 
-A single-page new-hire onboarding plan as one self-contained HTML document.
+Produce a single-screen onboarding plan in HTML.
 
-## Structure
-- **Cover banner** — name placeholder / role / start date / manager + buddy.
-- **Day 1 panel** — a concrete schedule (kickoff / lunch / 1:1s).
-- **First-week timeline** — Monday→Friday, two activities per day.
-- **30 / 60 / 90 milestones** — three cards, each with 3 concrete outcomes.
-- **Resources** — handbook / Slack channels / dashboards / payroll.
-- **"You're set when…"** — a 5-item checklist with checkboxes.
+## Workflow
 
-## Hard rules
-Single inline `<style>`; semantic HTML; accessible checkboxes with labels. Default
-to the 30/60/90 structure unless the brief says otherwise. Warm, welcoming tone;
-one accent.
+1. Read the active DESIGN.md.
+2. Identify the role + tenure expectations from the brief. Default to a
+   30/60/90-day shape if unspecified.
+3. Layout:
+   - Cover banner: name placeholder, role, start date, manager + buddy.
+   - "Day 1" panel with the literal schedule (kickoff time, lunch, 1:1 slot).
+   - First-week timeline (Mon → Fri, two activities per day).
+   - 30 / 60 / 90 day milestone cards with three concrete outcomes each.
+   - Resource list: handbook, Slack channels, key dashboards, payroll setup.
+   - "You're set when…" checklist — five outcomes with checkboxes.
+4. Single inline `<style>`, semantic HTML.
 
-## Runtime
-ONE self-contained `html` document; tokens from the attached design system or an
-inline `:root` set.
+## Output contract
 
-_(Artifact shape adapted from open-design's `hr-onboarding` design template.)_
+```
+<artifact identifier="onboarding-plan" type="text/html" title="Onboarding Plan">
+<!doctype html>...</artifact>
+```
+
+_(Skill from open-design (Apache-2.0) — frontmatter mapped to Vibedesign's parser; delivery follows Vibedesign's runtime contract, not open-design's file-writing harness.)_

@@ -243,7 +243,11 @@ export function buildSystem(
   if (skill) {
     system +=
       `\n\n---\n\n# Active skill: ${skill.title}\n\n` +
-      `The user invoked this skill. Follow its procedure for this turn:\n\n` +
+      `The user invoked this skill. Follow its procedure for this turn.\n\n` +
+      // Several skills are open-design originals written for a file-writing agent.
+      // Neutralize that harness's assumptions so the guidance applies cleanly in
+      // Vibedesign (fenced delivery, injected design system, no working directory).
+      `Running in Vibedesign, adapt any harness-specific steps: there is NO working directory and NO \`DESIGN.md\` file to read — the design system (if one is attached) is already provided above, so use it and NEVER stop to ask for a DESIGN.md file (if none is attached, proceed with your own tasteful direction). You do NOT write files to disk or a named output like \`index.html\`; you DELIVER by emitting ONE fenced block per the runtime contract (a single \`html\` document, or \`vdfiles\` when the skill genuinely spans multiple files). Ignore open-design tooling references (\`copy_starter_component\`, \`capabilities_required\`, \`data-od-id\`/\`data-om-validate\` tagging) — Vibedesign tags elements itself. Everything else in the procedure — the sections, the craft rules, the self-check — applies as written:\n\n` +
       skill.body;
     // 3b. Starter seed — a prebuilt template (token system / device frame / deck
     // runtime already wired) the skill copies from and modifies.

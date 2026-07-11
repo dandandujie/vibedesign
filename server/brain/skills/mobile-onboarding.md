@@ -1,31 +1,32 @@
 ---
-craft: [state-coverage, accessibility-baseline, laws-of-ux, typography]
-triggers: [mobile onboarding, ios onboarding, phone signup, app onboarding, 移动端引导, 新手引导]
+name: mobile-onboarding
+craft: [state-coverage, animation-discipline, accessibility-baseline, form-validation, laws-of-ux]
+triggers: [mobile onboarding, ios onboarding, android onboarding, phone signup, app onboarding, 移动端引导]
 ---
 
-# Mobile Onboarding: Three-Screen Flow
+# Mobile Onboarding Skill
 
-A three-screen mobile onboarding flow shown as three phone frames side by side in
-one self-contained HTML document (a static storyboard, not a live pager).
+Produce a three-screen mobile onboarding flow on a single HTML page.
 
-## The three screens
-1. **Splash** — brand mark + one-line promise, calm full-bleed.
-2. **Value prop** — hero illustration/icon + title + short description.
-3. **Sign-in** — "continue with" options + email, or a single primary CTA.
+## Workflow
 
-## Each screen carries
-A small status bar (time / signal / battery drawn as inline SVG), a hero visual,
-a title + supporting line, a 3-dot pager, a full-width pill primary CTA, and a
-top-right Skip / alt action.
+1. Read DESIGN.md.
+2. Identify the app + audience.
+3. Layout: three phone frames side by side. Each phone:
+   - Status bar (time, battery, signal).
+   - Hero artwork or icon.
+   - Headline + supporting paragraph.
+   - 3-dot pagination.
+   - Primary CTA (full-width pill button).
+   - "Skip" or alt action top-right.
+4. Last phone is the sign-in / continue-with options screen.
+5. Strong typography, gentle gradients, accessible contrast.
 
-## Hard rules
-- Strong type hierarchy; soft gradients; ≥4.5:1 contrast on all text.
-- One accent per screen; touch targets ≥44px; the sign-in form shows its states
-  (default / focus / error with an inline message).
-- Three phone frames laid out in a responsive row (wrap on narrow widths).
+## Output contract
 
-## Runtime
-ONE self-contained `html` document; inline CSS/SVG; tokens from the attached
-design system or a small inline `:root` set.
+```
+<artifact identifier="mobile-onboarding-name" type="text/html" title="Mobile Onboarding">
+<!doctype html>...</artifact>
+```
 
-_(Artifact shape adapted from open-design's `mobile-onboarding` design template.)_
+_(Skill from open-design (Apache-2.0) — frontmatter mapped to Vibedesign's parser; delivery follows Vibedesign's runtime contract, not open-design's file-writing harness.)_

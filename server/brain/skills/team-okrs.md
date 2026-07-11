@@ -1,26 +1,29 @@
 ---
-craft: [state-coverage, color]
-triggers: [okr, okrs, key results, objectives, 目标, 季度目标]
+name: team-okrs
+craft: [typography, color]
+triggers: [okr, okrs, key results, objectives, 目标]
 ---
 
-# Team OKRs: OKR Scorecard
+# Team OKRs Skill
 
-A single-screen OKR tracker as one self-contained HTML document.
+Produce a single-screen OKR tracker.
 
-## Structure
-- **Quarter banner** — "Q4 FY25" + date range + an overall-progress chip.
-- **Three objective cards** — each: title + owner avatar + status pill (On track /
-  At risk / Off track); inside, 3 key-result rows (metric / current → target / a
-  progress bar).
-- **Right sidebar** — at-a-glance KPIs, top movers, and a blockers callout.
+## Workflow
 
-## Hard rules
-Clear progress visualization (CSS progress bars, not images). Calm palette, one
-accent. Status pills use color + a label (never color alone). Numbers use tabular
-figures. Semantic HTML; accent ≤2 times.
+1. Read DESIGN.md.
+2. Layout:
+   - Quarter banner: Q4 FY25, dates, overall progress chip.
+   - Three objective cards. Each has:
+     - Objective title + owner avatar + status pill (On track / At risk / Off track)
+     - 3 key results, each a row with metric / current → target / progress bar
+   - Right sidebar: at-a-glance KPIs, top movers, blockers callout.
+3. Clear progress visualisation, calm palette, one accent.
 
-## Runtime
-ONE self-contained `html` document; tokens from the attached design system or an
-inline `:root` set.
+## Output contract
 
-_(Artifact shape adapted from open-design's `team-okrs` design template.)_
+```
+<artifact identifier="okr-q4" type="text/html" title="OKRs Q4">
+<!doctype html>...</artifact>
+```
+
+_(Skill from open-design (Apache-2.0) — frontmatter mapped to Vibedesign's parser; delivery follows Vibedesign's runtime contract, not open-design's file-writing harness.)_

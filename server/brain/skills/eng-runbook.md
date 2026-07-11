@@ -1,29 +1,32 @@
 ---
-craft: [state-coverage, typography]
-triggers: [runbook, ops doc, on-call, sre doc, 运维手册, 应急手册]
+name: eng-runbook
+craft: [typography, color]
+triggers: [runbook, ops doc, on-call, sre doc, service runbook, 运维手册]
 ---
 
-# Eng Runbook: Operations Runbook
+# Engineering Runbook Skill
 
-A single-page engineering runbook as one self-contained HTML document.
+Produce a single-page engineering runbook.
 
-## Structure
-- **Header** — service name + owner team + severity tier + version.
-- **Service summary** — one paragraph + a dependency list.
-- **Alerts table** — alert / severity / meaning / first response.
-- **Dashboards & links** — a linked list.
-- **Common procedures** — 3–4, each with a copyable code block (deploy / rollback /
-  rotate keys).
-- **On-call rotation** — a table (week / primary / secondary / backup).
-- **Incident response** — a numbered 5-step checklist.
+## Workflow
 
-## Hard rules
-Single inline `<style>`; semantic HTML. **Code blocks are monospace, selectable,
-and use straight quotes** (no smart quotes / ligatures that break copy-paste).
-Accent ≤2 times. Real commands or clearly-labelled placeholders.
+1. Read DESIGN.md.
+2. Identify the service from the brief.
+3. Layout:
+   - Header: service name, owner team, severity tier, version.
+   - Service summary paragraph + dependency list.
+   - Alerts table: alert name / severity / what it means / first response.
+   - Dashboards & links list.
+   - Common procedures block (3–4) with code blocks (deploy, rollback, rotate keys).
+   - On-call rotation table (week / primary / secondary / backup).
+   - Incident response checklist (5 numbered steps).
+4. One inline `<style>`, semantic HTML, monospace for code blocks.
 
-## Runtime
-ONE self-contained `html` document; tokens from the attached design system or an
-inline `:root` set.
+## Output contract
 
-_(Artifact shape adapted from open-design's `eng-runbook` design template.)_
+```
+<artifact identifier="runbook-name" type="text/html" title="Service Runbook">
+<!doctype html>...</artifact>
+```
+
+_(Skill from open-design (Apache-2.0) — frontmatter mapped to Vibedesign's parser; delivery follows Vibedesign's runtime contract, not open-design's file-writing harness.)_

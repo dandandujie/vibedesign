@@ -1,37 +1,58 @@
 ---
+name: saas-landing
 craft: [typography, color, anti-ai-slop, laws-of-ux]
-triggers: [saas landing, marketing page, product landing, saas 落地页, 产品官网]
+triggers: [saas landing, marketing page, product landing]
 ---
 
-# SaaS Landing: Single-Page Product Landing
+# SaaS Landing Skill
 
-A single-page SaaS landing as one self-contained HTML document, in a fixed
-six-section order.
+Produce a single-page SaaS landing. Agent, follow this workflow exactly.
 
-## Sections (in order)
-1. **Hero** — logo/wordmark, headline, one-line subhead, primary + secondary CTA.
-2. **Features** — 3–6 tiles (monoline SVG icon + title + one line).
-3. **Social proof** — logo wall or 1–3 testimonials. Skip entirely if there is no
-   real proof to show (don't invent it).
-4. **Pricing** — 2–3 tiers with a clearly recommended plan; omit if not a
-   pricing-led page.
-5. **Footer CTA** — a full-width accent band with one decisive action.
-6. **Footer** — nav, legal, small print.
+## 1. Read context
 
-## Hard rules
-- **Accent used ≤2 times total** across the page (hero + footer CTA). Links may
-  reuse it sparingly.
-- All colors from tokens — no invented hex. Display font carries the headline.
-- No external JS; semantic tags; check reflow at ~1440 / 768 / 375 in your head.
-- Copy must be real and specific — no lorem, no "Feature one / two / three", no
-  invented metrics.
+Before writing anything:
+- Read `DESIGN.md` in the current working directory. If missing, stop and ask for one.
+- Identify the color palette, typography tokens, and layout principles.
+- Note the "Agent Prompt Guide" section — it overrides any instruction here if they conflict.
 
-## Parameters (read from the prompt, else default)
-Hero density (spacing), accent strength, whether pricing/proof appear — take from
-the brief or choose sensible defaults; expose them later via Tweaks if asked.
+## 2. Plan sections
 
-## Runtime
-ONE self-contained `html` document; inline CSS; root in the attached design
-system or a small inline `:root` token set.
+Required sections, in order:
+1. **Hero** — logo-or-wordmark, headline (tagline input), subhead (1–2 sentences), primary CTA, secondary CTA. Use the hero_density parameter as vertical padding in px.
+2. **Features** — 3–6 feature tiles. Each: icon, short title, 1–2 sentence body.
+3. **Social proof** — `proof_count` logos or testimonials. If 0, skip this section.
+4. **Pricing** — 2–3 tiers. Include only if `has_pricing` is true.
+5. **Footer CTA** — large accent-colored band with one-button call to action.
+6. **Footer** — minimal: links + copyright.
 
-_(Artifact shape adapted from open-design's `saas-landing` design template.)_
+## 3. Apply design system
+
+- All colors must come from DESIGN.md tokens. Do not invent hex values.
+- Typography: use the declared display font for headlines, body font for everything else.
+- Layout: respect the grid, max-width, and section spacing rules.
+- Components: use declared button/card/input patterns. Do not add shadows if DESIGN.md's Depth & Elevation says minimal.
+- Accent: use the accent color only once in the hero, once in the footer CTA, and for all links. Do not flood the page.
+
+## 4. Write the file
+
+Output a single self-contained `index.html` with:
+- All CSS inlined in a `<style>` block in `<head>`.
+- System font fallbacks if DESIGN.md fonts aren't loadable from Google Fonts etc.
+- No external JS.
+- Semantic HTML (`<header>`, `<main>`, `<section>`, `<footer>`).
+- Each editable element tagged with `data-od-id="<unique-slug>"` so the host app's comment mode can target it.
+
+## 5. Self-check
+
+Before finishing, verify:
+- [ ] All text is content-meaningful, not lorem ipsum (use product_name and tagline inputs; generate plausible specific copy for the rest).
+- [ ] No broken color references (every CSS color value is in DESIGN.md's palette or a valid alpha/fallback variant).
+- [ ] Responsive breakpoints match DESIGN.md's Responsive Behavior section.
+- [ ] The page looks good at 1440w, 768w, and 375w (mentally simulate).
+- [ ] Accent used no more than twice total.
+
+## 6. Done
+
+Write only `index.html`. Do not generate a separate CSS file, JS file, or README.
+
+_(Skill from open-design (Apache-2.0) — frontmatter mapped to Vibedesign's parser; delivery follows Vibedesign's runtime contract, not open-design's file-writing harness.)_

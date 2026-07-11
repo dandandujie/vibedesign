@@ -1,34 +1,56 @@
 ---
-craft: [state-coverage, accessibility-baseline, laws-of-ux, color]
-triggers: [dashboard, admin panel, analytics, control panel, 后台, 管理后台, 数据看板]
+name: dashboard
+craft: [state-coverage, accessibility-baseline, laws-of-ux]
+triggers: [dashboard, admin panel, analytics, control panel, 后台, 管理后台]
 ---
 
-# Dashboard: Admin / Analytics Screen
+# Dashboard Skill
 
-A single-screen admin or analytics dashboard as one self-contained HTML document.
+Produce a single-screen admin / analytics dashboard.
 
-## Layout (three zones)
-- **Left sidebar** (220–260px): brand mark + 6–8 nav items (monoline icon + label,
-  the active one marked with the accent). Sticky.
-- **Top bar**: page title on the left, search + avatar on the right. Sticky.
-- **Main area**: independently scrollable, laid out on a CSS grid.
+## Workflow
 
-## Main area (three rows)
-1. **KPI row** — 3–4 stat cards (label + big number + a delta with direction).
-2. **Primary chart** — full-width or 2/3, drawn as **inline SVG** (a polyline with
-   a soft area fill, or a bar/area chart). No chart library.
-3. **Secondary** — a smaller chart or a data table (with header, zebra rows,
-   right-aligned numbers using tabular figures).
+1. **Read the active DESIGN.md** (injected above). Colors, typography, spacing,
+   component styling all come from it. Do not invent new tokens.
+2. **Classify** what the dashboard monitors (sales, traffic, usage, incidents,
+   ops, etc.) from the brief. Generate specific, plausible metric names and
+   values — no "Metric A / Metric B" placeholders.
+3. **Lay out** the required regions:
+   - **Left sidebar** (220–260px): brand mark at top, 6–8 nav links with
+     icons, active state uses the DS accent.
+   - **Top bar**: page title on the left, search input + user avatar / status
+     on the right.
+   - **Main**:
+     - Row 1: 3–4 KPI cards (label + big number + delta vs. prior period).
+     - Row 2: one primary chart (full width or 2/3) — render as an inline SVG
+       line / bar / area chart drawn from real-looking numbers.
+     - Row 3: one secondary chart or table (recent events, top items, etc.).
+4. **Write** one self-contained HTML document:
+   - `<!doctype html>` through `</html>`, CSS in one inline `<style>` block.
+   - CSS Grid for the overall layout; Flexbox inside cards.
+   - Semantic HTML: `<aside>`, `<header>`, `<main>`, `<section>`.
+   - Tag each logical region with `data-od-id="slug"` for comment mode.
+5. **Charts**: inline SVG only, no JS libraries. A line chart is ~10 lines of
+   `<polyline>` with a subtle area fill. A bar chart is N `<rect>`s with
+   DS-accent fill. Label axes lightly (muted text, smaller scale).
+6. **Self-check**:
+   - Every color comes from DESIGN.md tokens.
+   - Accent used at most twice (sidebar active + one chart highlight).
+   - Sidebar + top bar are sticky; main scrolls independently.
+   - Density matches the DS mood — airy DSes get more padding, dense DSes
+     (trading, crypto) tighten rows.
 
-## Hard rules
-- **Accent ≤2 times** (active nav + one highlight). Everything else neutral.
-- Charts are inline SVG only. Design at least the empty and loading states for the
-  data areas (skeleton rows beat a spinner).
-- Semantic `<aside> <header> <main>`; keyboard-reachable nav; ≥4.5:1 text contrast.
-- Density follows the brand's mood (airy vs. utilitarian).
+## Output contract
 
-## Runtime
-ONE self-contained `html` document; inline CSS/SVG; tokens from the attached
-design system or a small inline `:root` set.
+Emit between `<artifact>` tags:
 
-_(Artifact shape adapted from open-design's `dashboard` design template.)_
+```
+<artifact identifier="dashboard-slug" type="text/html" title="Dashboard Title">
+<!doctype html>
+<html>...</html>
+</artifact>
+```
+
+One sentence before the artifact, nothing after.
+
+_(Skill from open-design (Apache-2.0) — frontmatter mapped to Vibedesign's parser; delivery follows Vibedesign's runtime contract, not open-design's file-writing harness.)_

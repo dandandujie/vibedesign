@@ -1,29 +1,34 @@
 ---
-craft: [typography, typography-hierarchy]
-triggers: [prd, spec, product spec, feature brief, 需求文档, 产品文档]
+name: pm-spec
+craft: [typography, color]
+triggers: [prd, spec, product spec, feature brief, feature doc, 需求文档]
 ---
 
-# PM Spec: Product Spec / PRD
+# Product Spec Skill
 
-A single-page product spec (PRD) as one self-contained HTML document.
+Produce a one-page product spec / PRD.
 
-## Structure
-- **Header bar** — title + status pill (Draft / Review / Approved) + date + owner.
-- **Summary** — three lines: what / who / why now.
-- **Problem** — a panel with one paragraph + a customer or internal quote.
-- **Goals & non-goals** — two columns.
-- **Success metrics** — a table (metric / target / how measured).
-- **User stories** — "As a … I want … so that …" rows.
-- **Scope** — a milestone tracker across 3–4 phases.
-- **Open questions** — with assignee chips.
+## Workflow
 
-## Hard rules
-Single inline `<style>`; semantic HTML; accent used ≤2 times. Content is concrete
-(real metrics/targets or clearly-labelled placeholders), never lorem. Clean
-document typography — measured line length, one clear heading level per depth.
+1. Read the active DESIGN.md.
+2. Identify the feature + audience from the brief.
+3. Layout:
+   - Header strip: title, status pill (Draft / Review / Approved), date, owner.
+   - Three-line summary at the top — what, who, why now.
+   - "Problem" panel with one paragraph and a quote from a customer or
+     internal partner.
+   - "Goals & non-goals" two-column block.
+   - "Success metrics" table with metric / target / measurement.
+   - "User stories" list with as-a / I-want / so-that format.
+   - "Scope" milestone tracker (3–4 phases).
+   - "Open questions" with assignee chips.
+4. One inline `<style>`, semantic HTML, accent used twice max.
 
-## Runtime
-ONE self-contained `html` document; tokens from the attached design system or an
-inline `:root` set.
+## Output contract
 
-_(Artifact shape adapted from open-design's `pm-spec` design template.)_
+```
+<artifact identifier="spec-name" type="text/html" title="Spec Title">
+<!doctype html>...</artifact>
+```
+
+_(Skill from open-design (Apache-2.0) — frontmatter mapped to Vibedesign's parser; delivery follows Vibedesign's runtime contract, not open-design's file-writing harness.)_

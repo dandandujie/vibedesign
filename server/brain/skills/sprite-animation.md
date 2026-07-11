@@ -1,35 +1,68 @@
 ---
+name: sprite-animation
 craft: [typography, color]
-triggers: [sprite animation, pixel art animation, 8-bit explainer, retro animation, 像素动画, 复古动画]
+triggers: [sprite animation, pixel art animation, 8-bit explainer, retro animation, kinetic typography, history explainer, nintendo style, 精灵图, 像素动画, 复古动画]
 ---
 
-# Sprite Animation: Pixel / Retro Explainer Frame
+# Sprite Animation Skill
 
-A pixel/sprite-style animated explainer frame as one self-contained HTML document
-— a cream stage with an oversized year, a pixel mascot, kinetic kana, and a
-scrolling timeline. Reads as a single frame of a vertical video.
+Produce a single animated frame of an educational explainer — the kind you
+might screen-record into a vertical video. Pixel-art mascots, big year
+display, looping CSS animations, kinetic Japanese / English display type.
 
-## Stage
-Cream background (~`#f5efe2`) with paper grain, a fixed 16:9 letterbox. A top mono
-bar: a title slug on the left, a progress dot readout ("01/12") + a "REC" stamp on
-the right.
+## Workflow
 
-## At least three independent looping animations
-1. **The year** — serif display, a `clip-path` scanline-glitch sweep plus a small
-   pop each loop.
-2. **A 96×128 pixel card** — inline SVG (`shape-rendering: crispEdges`) or a
-   box-shadow grid, bobbing ±4px over ~1.6s.
-3. **Kinetic kana / label** — fade-slides in sync with the bob.
-4. A bottom year-tick ribbon scrolling left at a constant speed.
+1. **Read the active DESIGN.md** (injected above). Pick the loudest serif
+   token for the year, a sturdy sans for headlines, and a mono token for
+   timeline / index labels.
+2. **Pick the topic** from the brief (e.g. "Nintendo · 1889 — Hanafuda").
+   You always need: a year, a one-line headline, an animated subject (a
+   pixel sprite — character, object, or icon), and a short caption.
+3. **Stage** — full-bleed cream / off-white background (`#f5efe2`) with a
+   subtle paper grain. Keep margins generous; this is one beat of a video.
+4. **Top bar** — small mono row:
+   - Left: title slug ("名次の/番組" or "EP. 01 / NINTENDO")
+   - Right: progress dots ("01 / 12") and a "REC" stamp
+5. **Subject animations** — at least three independent looping animations
+   on the page:
+   - **Big year**: the headline year (e.g. "1889年") fills the lower-left,
+     in a serif display weight. It has a subtle vertical glitch / scanline
+     animation (clip-path keyframes), and a 1-frame "pop" every loop.
+   - **Pixel sprite card**: a 96×128 pixel-art card or character (use an
+     inline SVG with crisp `shape-rendering: crispEdges` rectangles, or a
+     `box-shadow` pixel grid). Subtle bobbing animation (±4px, 1.6s).
+   - **Kinetic kana**: 1–2 Japanese / kanji characters that fade-and-slide
+     in sync with the bob (e.g. "花" — *hana* — flower).
+   - **Tick ribbon**: bottom of the stage, a tape/ribbon with year ticks
+     (1889 · 1907 · 1949 · 1977 · 1985 · 2006 · 2017) sliding left at a
+     slow constant speed.
+6. **Caption block** — small mono caption explaining the trivia:
+   "Nintendo started as a Hanafuda playing-card maker in Kyoto, 1889.
+    Mario didn't show up for another ninety-six years."
+7. **Write** a single HTML document:
+   - `<!doctype html>` through `</html>`, CSS inline, no external JS.
+   - All animations use `@keyframes` + `animation: ... infinite`.
+   - Stage uses a fixed canvas ratio (e.g. 16:9 letterboxed) so the loop
+     reads as a single frame from a video.
+   - `data-od-id` on stage, year, sprite, caption, and tick ribbon.
+8. **Self-check**:
+   - The page is one cohesive scene, not a collage. The eye lands on the
+     year first, then the sprite, then the caption.
+   - At least 3 independent looping animations are visible.
+   - The color palette is restrained (cream + a single accent red + ink).
+   - No external assets — all sprites are inline SVG or CSS.
 
-## Hard rules
-Mono caption carries the trivia. Restrained palette (cream + one accent red + ink
-black). Real CDN webfonts are welcome; keep the pixel GRAPHICS as inline SVG / CSS
-(no external images). Reading order: year → sprite → caption. Animate with
-`@keyframes` only (no JS) so it captures cleanly to video.
+## Output contract
 
-## Runtime
-ONE self-contained `html` document; tokens from the attached design system or an
-inline `:root` set.
+Emit between `<artifact>` tags:
 
-_(Artifact shape adapted from open-design's `sprite-animation` design template.)_
+```
+<artifact identifier="sprite-anim-slug" type="text/html" title="Sprite animation — Title">
+<!doctype html>
+<html>...</html>
+</artifact>
+```
+
+One sentence before the artifact, nothing after.
+
+_(Skill from open-design (Apache-2.0) — frontmatter mapped to Vibedesign's parser; delivery follows Vibedesign's runtime contract, not open-design's file-writing harness.)_
