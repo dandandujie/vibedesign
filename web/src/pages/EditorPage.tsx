@@ -12,6 +12,7 @@ import { CommentPopover } from "../components/CommentPopover";
 import { SharePopover } from "../components/SharePopover";
 import { TweaksPanel, TweaksAsk } from "../components/TweaksPanel";
 import { QuestionFormView } from "../components/QuestionFormView";
+import { openPresenter, looksLikeDeck } from "../lib/presenter";
 import { CommentsPanel } from "../components/CommentsPanel";
 import { AnnotateDrawOverlay, Mark, ANNOTATE_ACCENT } from "../components/AnnotateDrawOverlay";
 import { EditPanel } from "../components/EditPanel";
@@ -831,6 +832,17 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
             </button>
             {presentMenu && (
               <div className="mini-menu" style={{ right: 0 }} ref={clampPop}>
+                {looksLikeDeck(canvasHtml) && (
+                  <button
+                    onClick={() => {
+                      setPresentMenu(false);
+                      const html = activeVersion ? stripWorkingAttrs(activeVersion.html) : canvasHtml;
+                      if (html && !openPresenter(html)) alert("未识别到幻灯片（需要 <section> / .slide 结构）");
+                    }}
+                  >
+                    🖥 {t("演讲者视图（多窗口）")}
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setPresentMenu(false);
