@@ -5,7 +5,12 @@ triggers: [deck, slides, presentation, pitch, keynote]
 
 # Make a Deck: Slide Presentation in HTML
 
-Build a slide presentation as a single HTML file with fixed-size slides (typically 1920×1080, 16:9) that letterbox to any viewport. Use this when the user asks for a deck, presentation, slides, or pitch. Don't hand-roll the scaling — use the deck shell starter.
+Build a slide presentation as a single HTML file with fixed-size slides (typically 1920×1080, 16:9) that letterbox to any viewport. Use this when the user asks for a deck, presentation, slides, or pitch.
+
+## Vibedesign delivery (read first)
+Deliver ONE self-contained `html` document. There is NO `copy_starter_component` / `deck_stage.js` starter and no `data-om-validate` tagging here — instead include a COMPACT inline `<script>` deck shell that does exactly three things: (1) letterbox-scale a fixed 1920×1080 stage to the viewport with `transform: scale()`, (2) keyboard + click/tap paging (←/→/space, click-right/left), and (3) a slide counter. Structure: slides are direct `<section class="slide" data-screen-label="01 …">` children of a single `<div class="deck">` wrapper (the host's presenter view reads this). Keep everything inline (CSS in `<style>`, the shell in `<script>`) so the file is a true standalone deck. If you want the richer html-ppt runtime instead (36 themes, canvas FX, S-key presenter popup), that is the `consulting-deck` skill.
+
+> Tip: for a self-contained deck, a ~30-line inline shell is enough — don't pull in external libraries.
 
 ## Phase 1: Discovery
 
@@ -21,9 +26,9 @@ Limit the deck to **1–2 background colors**; section headers may break to a th
 
 ## Phase 3: Build the deck shell
 
-Use the deck-shell starter (`copy_starter_component` with `kind: "deck_stage.js"`) — it handles scaling/letterboxing, keyboard and tap navigation, the slide counter, localStorage persistence, print-to-PDF, and `data-om-validate` tagging. Each slide is a direct child `<section>` of `<deck-stage>`.
+Write the compact inline shell described in "Vibedesign delivery" above — it handles scaling/letterboxing, keyboard + tap navigation, and the slide counter. Each slide is a direct child `<section class="slide">` of the single `<div class="deck">` wrapper.
 
-Give each slide a `data-screen-label` so the user can reference it by name when commenting (`<section data-screen-label="01 Title">`). **Labels are 1-indexed** to match the slide counter the user sees.
+Give each slide a `data-screen-label` so the user can reference it by name when commenting (`<section class="slide" data-screen-label="01 Title">`). **Labels are 1-indexed** to match the slide counter the user sees.
 
 ## Phase 4: Build slide-by-slide
 
