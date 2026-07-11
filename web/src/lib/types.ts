@@ -62,10 +62,14 @@ export interface ArtifactVersion {
   html: string;
   label: string;
   createdAt: number;
-  kind?: "html" | "markdown"; // deliverable renderer (A6-3); default html
+  kind?: "html" | "markdown" | "multifile"; // deliverable renderer (A6-3); default html
   source?: VersionSource; // provenance: how this version came to be
   prompt?: string; // the user prompt that produced an AI version (snippet)
   restoreFromVersionId?: string; // set when this version restores an earlier one
+  // Multi-file artifact (kind === "multifile"): preview.entry + sibling files,
+  // served over /api/mf. `html` mirrors the entry so single-file paths still work.
+  files?: Record<string, string>;
+  entry?: string;
 }
 
 export type Device = "desktop" | "tablet" | "mobile";

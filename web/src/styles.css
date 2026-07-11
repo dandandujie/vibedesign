@@ -941,6 +941,77 @@ code,
   border: 0;
   background: #fff;
 }
+
+/* Multi-file artifact viewer — preview iframe + per-file source tabs. */
+.mf-viewer {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: var(--surface, #fff);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.mf-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 10px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border, #e6e4de);
+  flex: 0 0 auto;
+  background: var(--surface-2, #faf9f6);
+}
+.mf-tab {
+  flex: 0 0 auto;
+  font-size: 14.5px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary, #6b6a63);
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.mf-tab:hover {
+  background: var(--surface, #fff);
+}
+.mf-tab.on {
+  background: var(--surface, #fff);
+  color: var(--text-primary, #191915);
+  border-color: var(--border, #e6e4de);
+  font-weight: 600;
+}
+.mf-body {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+.mf-frame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #fff;
+}
+.mf-code {
+  margin: 0;
+  height: 100%;
+  overflow: auto;
+  padding: 16px 18px;
+  font-size: 14.5px;
+  line-height: 1.6;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre;
+  color: var(--text-primary, #191915);
+  background: var(--surface, #fff);
+}
+.mf-loading {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  color: var(--text-secondary, #6b6a63);
+  font-size: 15px;
+}
 .live-json {
   margin: 0;
   height: 100%;

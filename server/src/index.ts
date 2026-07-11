@@ -39,6 +39,7 @@ import {
 } from "./liveArtifacts.js";
 import { renderMotionVideo, MotionRenderOpts } from "./motionRender.js";
 import { renderScreenshot, ShotOpts } from "./screenshotRender.js";
+import { serveMultiFile } from "./multiFile.js";
 import { moduleDir } from "./paths.js";
 import { randomUUID } from "node:crypto";
 
@@ -278,6 +279,16 @@ app.post("/api/render-screenshot", async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
+});
+
+// Multi-file artifact serving: entry HTML + sibling files (styles.css / app.js).
+// Relative refs in the entry resolve against the trailing-slash base URL.
+app.get("/api/mf/:projectId/:versionId/*", (req, res) => {
+  const served = serveMultiFile(req.params.projectId, req.params.versionId, (req.params as Record<string, string>)[0] ?? "");
+  if (!served) return res.status(404).send("not found");
+  res.setHeader("Content-Type", served.contentType);
+  res.setHeader("Cache-Control", "no-store");
+  res.send(served.body);
 });
 
 app.get("/api/projects", (_req, res) => res.json(listProjects()));

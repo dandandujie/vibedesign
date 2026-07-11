@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { t } from "../lib/i18n";
 import { ChatMessage, Meta, streamChat, saveDesignSystem } from "../lib/api";
-import { extractArtifact, extractDeliverable, extractForm, extractProps, extractDesignSystemSpec, extractDesignSystemTokens, stripWorkingAttrs, extractLiveSpec } from "../lib/artifact";
+import { extractArtifact, extractDeliverable, extractForm, extractProps, extractDesignSystemSpec, extractDesignSystemTokens, stripWorkingAttrs, extractLiveSpec, extractFiles } from "../lib/artifact";
 import { LiveArtifact, createLiveArtifact, getLiveArtifact } from "../lib/liveApi";
 import { LiveArtifactViewer } from "../components/LiveArtifactViewer";
 import { ArtifactVersion, SelectedInfo, RectMap, PinTarget } from "../lib/types";
@@ -13,6 +13,7 @@ import { SharePopover } from "../components/SharePopover";
 import { TweaksPanel, TweaksAsk } from "../components/TweaksPanel";
 import { QuestionFormView } from "../components/QuestionFormView";
 import { openPresenter, looksLikeDeck } from "../lib/presenter";
+import { MultiFileViewer } from "../components/MultiFileViewer";
 import { CommentsPanel } from "../components/CommentsPanel";
 import { AnnotateDrawOverlay, Mark, ANNOTATE_ACCENT } from "../components/AnnotateDrawOverlay";
 import { EditPanel } from "../components/EditPanel";
@@ -178,7 +179,34 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
         onDone: () => {
           setStreaming(false);
           const buf = bufRef.current;
-          const deliverable = extractDeliverable(buf);
+          const lastUserAll = [...sendMessages].reverse().find((m) => m.role === "user");
+          const promptAll = lastUserAll ? lastUserAll.content.split(/```|\n（/)[0].trim().slice(0, 60) : undefined;
+          // Multi-file artifact (```vdfiles): preview.entry + sibling files, served
+          // over /api/mf. Additive — supersedes the single-file deliverable path.
+          const mf = extractFiles(buf);
+          const deliverable = mf ? null : extractDeliverable(buf);
+          if (mf) {
+            const v: ArtifactVersion = {
+              id: crypto.randomUUID(),
+              html: mf.files[mf.entry] ?? "",
+              label: `多文件 · ${mf.entry}`,
+              createdAt: Date.now(),
+              kind: "multifile",
+              source: "ai",
+              files: mf.files,
+              entry: mf.entry,
+              ...(promptAll ? { prompt: promptAll } : {}),
+            };
+            setProj((prev) => {
+              if (!prev) return prev;
+              const next = { ...prev, artifacts: [...prev.artifacts, v], activeVersionId: v.id, liveArtifactId: null };
+              void saveProject(next); // persist immediately so /api/mf can serve it before the iframe loads
+              return next;
+            });
+            setEditDraft(null);
+            setDirty(false);
+            setLiveArt(null);
+          }
           if (deliverable) {
             const art = deliverable.html;
             const lastUser = [...sendMessages].reverse().find((m) => m.role === "user");
@@ -883,6 +911,8 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
         <div className={`canvas-stage device-${device}`}>
           {skillInputForm && activeSkill?.inputs && !streaming ? (
             <QuestionFormView form={activeSkill.inputs} onSubmit={submitSkillInputs} />
+          ) : activeVersion?.kind === "multifile" && !streaming ? (
+            <MultiFileViewer projectId={projectId} version={activeVersion} />
           ) : liveArt && !streaming ? (
             <LiveArtifactViewer live={liveArt} providerId={meta?.activeProviderId} onChanged={setLiveArt} />
           ) : pendingForm ? (

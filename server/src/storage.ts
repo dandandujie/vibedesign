@@ -17,10 +17,15 @@ export interface ArtifactVersion {
   html: string;
   label: string;
   createdAt: number;
-  kind?: "html" | "markdown"; // deliverable renderer
+  kind?: "html" | "markdown" | "multifile"; // deliverable renderer
   source?: "ai" | "manual" | "restore"; // provenance
   prompt?: string; // user prompt snippet that produced an AI version
   restoreFromVersionId?: string;
+  // Multi-file artifact (kind === "multifile"): a preview.entry HTML plus sibling
+  // files (styles.css / app.js / …) served over /api/mf. `html` mirrors the entry
+  // file so single-file code paths (export/handoff) keep working.
+  files?: Record<string, string>;
+  entry?: string;
 }
 
 export interface Project {
