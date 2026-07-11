@@ -455,5 +455,18 @@ A7-1 Palette 换肤 bridge（推荐优先，价值高自包含）· A8-1/A8-2/A8
 
 ## 建议优先级
 **W3-A（换肤，价值最高）→ W3-B（导出，最省）→ W3-D（版本溯源，最省）→ W3-C（direction-cards）**；E 组按需再挑。
+
+---
+
+## 平台层能力（把 open-design 的平台能力「做进来」，不降级/不适配 sandbox）—— 已实现并验证（2026-07-12）
+
+用户要求：**不要改写成内联自实现或降级适配 sandbox**，而是把平台能力真正建进 Vibedesign。六项全部完成、真窗口验证、分别独立提交：
+
+1. **CDN 字体 + WebGL**（`220d7a0`）：先真窗口验证普通 artifact iframe 本就支持（`allow-scripts allow-same-origin`、无 CSP、WebGL=true、CDN 字体 LOADED）→ 撤回 deck/动效技能里错误加的「禁 CDN/WebGL」限制。**结论：能力本就在，是我此前误加限制。**
+2. **PNG/PDF 像素级导出**（`220d7a0`）：`server/src/screenshotRender.ts`（Playwright 无头 Chromium 真渲染 → PNG / print-PDF，正确渲染 CJK 字体 + WebGL，客户端 modern-screenshot 做不到）+ `POST /api/render-screenshot` + SharePopover「PNG/PDF（像素级）」。验证：CJK(Noto Serif SC) 800×2=1600×1800 PNG、`%PDF-`、~1.3s。
+3. **copy starter 种子**（`220d7a0`）：捆绑 web-prototype/mobile-app/magazine-deck 的起手模板（`server/brain/skill-seeds/`，Apache-2.0 已署名），技能选中时注入 prompt 作起手（token 系统/设备框/翻页 runtime 已接好）。
+4. **inputs 表单**（`1fb0b0c`）：`SkillEntry.inputs?: QuestionForm`，选中带 inputs 的技能后首次发送先弹表单（**复用 QuestionFormView**），答案折进 brief 再生成。纯前端、零服务端改动、走与 pendingForm 相同画布插槽。已为 saas-landing/dashboard/social-carousel/finance-report 声明。
+5. **多窗口 presenter**（`1b844b8`）：`web/src/lib/presenter.ts` 从 deck artifact 提取幻灯+备注（兼容 make-a-deck 的 `<deck-stage>`+`#speaker-notes`、consulting/magazine 的 `.slide`+`.notes`），单张独立渲染+letterbox 缩放。控制窗（当前/下一张+备注+计时+计数+←/→）+ 观众窗（全屏），blob URL + BroadcastChannel 同步。接入既有 Present 菜单，仅 `looksLikeDeck` 显示。真窗口：提取/缩放/预览/备注/计时/翻页联动全过。
+6. **多文件 + preview.entry**（`9d1d25f`）：**独立渲染路径，完全不碰单文件 Canvas 框架**。`\`\`\`vdfiles` 约定（`entry:` + `=== path ===`）→ `extractFiles`；`ArtifactVersion` 加 `kind:multifile`+`files`/`entry`（`html` 镜像 entry 保兼容）；`server/src/multiFile.ts`+`GET /api/mf/:pid/:vid/*` 从已存版本按路径提供文件（content-type/路径归一化/穿越防护）；`MultiFileViewer.tsx` 预览 iframe（兄弟文件经 /api/mf 相对解析）+ 每文件源码页签 + 落库前 404 重探；`brain.ts` 增 vdfiles 契约（默认仍单文件）。真窗口：三文件演示，styles.css 应用 + app.js 运行（计数 0→2）+ 源码页签；穿越防护仅返回 not found。
 </content>
 </invoke>
