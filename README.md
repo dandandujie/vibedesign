@@ -9,9 +9,9 @@
 
 目标：使用时**感觉完全在用 Claude Design**——UI/UX/交互/设计逻辑/全流程 1:1，唯一差异是 BYOK（自带模型服务：Anthropic / OpenAI / OpenAI-Responses / Gemini 格式 + 自定义 baseURL），并支持中/英切换。
 
-- 复刻真值来自**实地考察** claude.ai/design（`docs/field-study.md`、`docs/tokens-field.md`——含整套扒下来的 `--om-*` design tokens），流程规格见 `docs/replication-spec.md`。
+- 复刻真值来自**实地考察** claude.ai/design（含整套扒下来的 `--om-*` design tokens 与全流程规格）。
 - 设计大脑用开源的 [Claude Design 系统提示词 + 14 skills](https://github.com/Trystan-SA/claude-design-system-prompt) 驱动。
-- 功能升级参考了开源的 [open-design](https://github.com/nexu-io/open-design) 项目（craft 法则层、Live Artifacts、HyperFrames、换肤、导出契约等，均自研实现，见 `docs/open-design-upgrade-plan.md`）。
+- 功能升级参考了开源的 [open-design](https://github.com/nexu-io/open-design) 项目（craft 法则层、Live Artifacts、HyperFrames、换肤、导出契约等，均自研实现）。
 - 最终形态：Electron 跨端桌面应用（Win + Mac），当前为本地 web 开发形态。
 
 ## 架构
@@ -72,7 +72,7 @@ git push origin main --tags
 
 产物：mac dmg/zip（arm64 + x64）+ Windows nsis 安装器/zip（x64），见 `.github/workflows/release.yml`。
 
-## 功能清单（对齐 Claude Design 实地考察，docs/field-study.md）
+## 功能清单（对齐 Claude Design 实地考察）
 
 - 首页：衬线大标题 / 输入卡（＋图片、Design system ▾、Template ▾、Model ▾=BYOK）/ 扇形模板卡 / Projects·Design systems·Templates 三 tab
 - 生成：澄清问题 → **画布交互表单**（色板/chips/Decide for me/Continue）→ 「Questions answered:」回填 → 流式生成 → ✦ 步骤组 + 文件 chip + 👍👎
