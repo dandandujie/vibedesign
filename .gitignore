@@ -6,3 +6,6 @@ release/
 server/.data/
 .env
 *.tsbuildinfo
+
+# docs/ 只保留 assets（开发过程文档不上传，仅本地保留）
+docs/*.md
