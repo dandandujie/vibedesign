@@ -21,7 +21,7 @@ Vibedesign/
 ├─ server/                 Express 薄后端
 │  ├─ src/index.ts         SSE 流式聊天 + 配置/项目接口
 │  ├─ src/providers/       多格式适配（anthropic / openai / openai-responses / gemini）
-│  ├─ src/brain.ts         大脑接线：system-prompt + 14 skills + 运行时说明
+│  ├─ src/brain.ts         大脑接线：system-prompt + 33 skills + craft 法则 + 运行时说明
 │  ├─ brain/               system-prompt.md + skills/*.md（来自开源仓库）
 │  ├─ src/config.ts        模型服务配置（本地 .data/，含 key，不入库）
 │  └─ src/storage.ts       项目/artifact 版本持久化
@@ -85,13 +85,19 @@ git push origin main --tags
 - Design systems：创建/编辑品牌上下文，注入每次生成
 - Share/Export：Copy link、PDF、Standalone HTML、Claude Code handoff bundle
 
-## 技能（14 个，来自开源系统提示词）
+## 技能（33 个）
 
-生产类：`discovery-questions` `frontend-aesthetic-direction` `wireframe` `make-a-prototype` `make-a-deck` `make-tweakable` `generate-variations`
-系统类：`design-system-extract` `component-extract`
-审查类：`accessibility-audit` `ai-slop-check` `hierarchy-rhythm-review` `interaction-states-pass` `polish-pass`
+原 14 个来自开源 [Claude Design 系统提示词](https://github.com/Trystan-SA/claude-design-system-prompt)，其余为参考 [open-design](https://github.com/nexu-io/open-design) 后新增的模板 / 演示 / 评审技能。
 
-在输入框上方的「技能」下拉里为下一条消息启用；不选则由模型按系统提示词自动决定。
+- **生产 / 创作**：`discovery-questions` `frontend-aesthetic-direction` `wireframe` `make-a-prototype` `make-a-deck` `make-motion` `make-tweakable` `generate-variations`
+- **系统 / 提取**：`design-system-extract` `component-extract`
+- **模板 · 原型 / 页面**：`web-prototype` `saas-landing` `dashboard` `mobile-app` `mobile-onboarding`
+- **模板 · 营销物料**：`social-carousel` `email-marketing` `magazine-poster` `motion-frames` `sprite-animation`
+- **模板 · 文档 / 工作**：`pm-spec` `team-okrs` `eng-runbook` `finance-report` `hr-onboarding`
+- **模板 · 演示**：`magazine-deck` `consulting-deck`（内置 html-ppt 运行时：36 主题 + 画布特效 + S 键演讲者模式）
+- **审查 / 评审**：`accessibility-audit` `ai-slop-check` `hierarchy-rhythm-review` `interaction-states-pass` `polish-pass` `critique`（五维 + 雷达图报告）
+
+在输入框上方的「技能」下拉里为下一条消息启用；部分模板技能会先弹出关键输入表单（含数字/开关控件）。不选则由模型按系统提示词自动决定。
 
 ## 社区 · 友情链接
 
