@@ -346,6 +346,7 @@ const INSPECTOR_SCRIPT = String.raw`
     if (!drawTool) return;
     e.preventDefault();
     e.stopPropagation();
+    post({ type: "drawStart", html: serialize(false) });
     var layer = drawLayer();
     var x = e.pageX, y = e.pageY;
 
@@ -559,6 +560,7 @@ const INSPECTOR_SCRIPT = String.raw`
   }
 
   window.addEventListener("message", function (e) {
+    if (e.source !== parent) return;
     var d = e.data || {};
     if (!d.__vd_cmd) return;
     if (d.__vd_cmd === "enable") { enabled = !!d.value; if (!enabled) { finishEdit(true); clearHover(); } }

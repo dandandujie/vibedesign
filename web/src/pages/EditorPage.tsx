@@ -80,10 +80,41 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
   const bufRef = useRef("");
   const seededRef = useRef(false);
   const lastSnapRef = useRef(0);
+  const pendingSaveRef = useRef<Project | null>(null);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(true);
 
   const hasProvider = !!(meta && meta.activeProviderId);
 
+  const flushProjectSave = (keepalive = false) => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    const pending = pendingSaveRef.current;
+    if (!pending) return;
+    pendingSaveRef.current = null;
+    void saveProject(pending, { keepalive }).catch((err) => {
+      console.error("自动保存失败", err);
+      if (!keepalive && mountedRef.current) {
+        if (!pendingSaveRef.current) pendingSaveRef.current = pending;
+        setError(`自动保存失败：${err instanceof Error ? err.message : String(err)}`);
+      }
+    });
+  };
+
   useEffect(() => () => abortRef.current?.(), []);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    const beforeUnload = () => flushProjectSave(true);
+    window.addEventListener("beforeunload", beforeUnload);
+    return () => {
+      mountedRef.current = false;
+      window.removeEventListener("beforeunload", beforeUnload);
+      flushProjectSave(true);
+    };
+  }, []);
 
   useEffect(() => {
     let stale = false;
@@ -101,13 +132,18 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
     });
     return () => {
       stale = true;
+      flushProjectSave(true);
     };
   }, [projectId]);
 
   useEffect(() => {
     if (!proj) return;
-    const t = setTimeout(() => saveProject(proj), 500);
-    return () => clearTimeout(t);
+    pendingSaveRef.current = proj;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => flushProjectSave(), 500);
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
   }, [proj]);
 
   useEffect(() => {
@@ -342,6 +378,13 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
     }
   };
 
+  const snapshotBeforeDraw = (html: string) => {
+    if (!html) return;
+    lastSnapRef.current = Date.now();
+    setUndoStack((s) => [...s.slice(-29), html]);
+    setRedoStack([]);
+  };
+
   const undo = async () => {
     if (!undoStack.length) return;
     const cur = await canvasRef.current?.serialize();
@@ -573,7 +616,6 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
 
   const onDrawn = () => {
     setDirty(true);
-    void snapshot();
     // one shape per activation, then back to select (Figma-like)
     changeEditTool("select");
   };
@@ -929,6 +971,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
               streaming={streaming}
               awaitingArtifact={awaitingArtifact}
               onSelected={setSelected}
+              onDrawStart={snapshotBeforeDraw}
               onDrawn={onDrawn}
               onTextEditStart={onTextEditStart}
               onTextCommit={onTextCommit}

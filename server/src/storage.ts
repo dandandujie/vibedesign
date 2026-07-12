@@ -1,7 +1,8 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from "node:fs";
+import { readFileSync, mkdirSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { ChatMessage } from "./providers/index.js";
 import { moduleDir, dataDir } from "./paths.js";
+import { readJsonFile, writeJsonAtomic } from "./jsonFile.js";
 
 const DATA_DIR = dataDir(join(moduleDir, "..", ".data"));
 const PROJECTS_FILE = join(DATA_DIR, "projects.json");
@@ -44,17 +45,12 @@ function ensureDir() {
 
 function readAll(): Project[] {
   ensureDir();
-  if (!existsSync(PROJECTS_FILE)) return [];
-  try {
-    return JSON.parse(readFileSync(PROJECTS_FILE, "utf8"));
-  } catch {
-    return [];
-  }
+  return readJsonFile<Project[]>(PROJECTS_FILE, []);
 }
 
 function writeAll(projects: Project[]) {
   ensureDir();
-  writeFileSync(PROJECTS_FILE, JSON.stringify(projects, null, 2));
+  writeJsonAtomic(PROJECTS_FILE, projects);
 }
 
 export function listProjects(): { id: string; name: string; updatedAt: number; favorite?: boolean }[] {
@@ -141,17 +137,12 @@ function loadBuiltinDesignSystems(): DesignSystem[] {
 
 function readDS(): DesignSystem[] {
   ensureDir();
-  if (!existsSync(DS_FILE)) return [];
-  try {
-    return JSON.parse(readFileSync(DS_FILE, "utf8"));
-  } catch {
-    return [];
-  }
+  return readJsonFile<DesignSystem[]>(DS_FILE, []);
 }
 
 function writeDS(list: DesignSystem[]) {
   ensureDir();
-  writeFileSync(DS_FILE, JSON.stringify(list, null, 2));
+  writeJsonAtomic(DS_FILE, list);
 }
 
 export function listDesignSystems(): DesignSystem[] {

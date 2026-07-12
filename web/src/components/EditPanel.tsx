@@ -193,7 +193,10 @@ function AppearanceSection({ selected, onApplyStyle }: Props) {
               </select>
             </Row>
             <Row label={t("Opacity")}>
-              <NumInput value={selected!.styles.opacity} onCommit={(v) => onApplyStyle("opacity", String(Math.min(1, Math.max(0, parseFloat(v) || 1))))} />
+              <NumInput value={selected!.styles.opacity} onCommit={(v) => {
+                const opacity = parseFloat(v);
+                onApplyStyle("opacity", String(Math.min(1, Math.max(0, Number.isFinite(opacity) ? opacity : 1))));
+              }} />
             </Row>
             <Row label={t("Z-index")}>
               <NumInput value={selected!.styles.zIndex} suffix="auto" onCommit={(v) => onApplyStyle("zIndex", v || "auto")} />

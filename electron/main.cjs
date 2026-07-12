@@ -28,13 +28,22 @@ function createWindow() {
 
   // External links open in the system browser, not in-app.
   win.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith("http://localhost")) return { action: "allow" };
-    shell.openExternal(url);
+    let target;
+    try {
+      target = new URL(url);
+    } catch {
+      return { action: "deny" };
+    }
+    const internalHost = target.hostname === "localhost" || target.hostname === "127.0.0.1";
+    if (target.protocol === "http:" && internalHost && target.port === PORT) return { action: "allow" };
+    if (target.protocol === "https:" || target.protocol === "mailto:") {
+      void shell.openExternal(target.href).catch(() => {});
+    }
     return { action: "deny" };
   });
 
   // Give the embedded server a beat to bind before loading.
-  setTimeout(() => win.loadURL(`http://localhost:${PORT}`), 300);
+  setTimeout(() => win.loadURL(`http://127.0.0.1:${PORT}`), 300);
 }
 
 app.whenReady().then(() => {

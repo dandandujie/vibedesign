@@ -43,12 +43,17 @@ export async function getProject(id: string): Promise<Project | null> {
   return r.json();
 }
 
-export async function saveProject(p: Project): Promise<void> {
-  await fetch(`/api/projects/${p.id}`, {
+export async function saveProject(p: Project, options: { keepalive?: boolean } = {}): Promise<void> {
+  const r = await fetch(`/api/projects/${p.id}`, {
     method: "PUT",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(p),
+    keepalive: options.keepalive,
   });
+  if (!r.ok) {
+    const message = await r.json().then((body) => body.error as string).catch(() => `HTTP ${r.status}`);
+    throw new Error(message || `HTTP ${r.status}`);
+  }
 }
 
 export async function deleteProject(id: string): Promise<void> {

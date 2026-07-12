@@ -20,6 +20,7 @@ interface Props {
   streaming: boolean;
   awaitingArtifact: boolean;
   onSelected: (info: SelectedInfo | null) => void;
+  onDrawStart?: (html: string) => void; // drawing will mutate DOM; receives the exact pre-change snapshot
   onDrawn?: () => void; // a drawing-tool shape was committed
   onTextEditStart?: () => void; // an inline text edit began (host snapshots pre-edit state)
   onTextCommit?: () => void; // an inline text edit was committed in-canvas
@@ -30,7 +31,7 @@ interface Props {
 let reqCounter = 0;
 
 export const Canvas = forwardRef<CanvasHandle, Props>(function Canvas(
-  { html, refineMode, textEdit, dimmed, streaming, awaitingArtifact, onSelected, onDrawn, onTextEditStart, onTextCommit, onViewport, onClaudeRequest },
+  { html, refineMode, textEdit, dimmed, streaming, awaitingArtifact, onSelected, onDrawStart, onDrawn, onTextEditStart, onTextCommit, onViewport, onClaudeRequest },
   ref,
 ) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -128,6 +129,7 @@ export const Canvas = forwardRef<CanvasHandle, Props>(function Canvas(
 
   useEffect(() => {
     function onMessage(e: MessageEvent) {
+      if (e.source !== iframeRef.current?.contentWindow) return;
       const d = e.data;
       if (!d || d.__vd !== true) return;
       if (d.type === "ready") {
@@ -165,6 +167,8 @@ export const Canvas = forwardRef<CanvasHandle, Props>(function Canvas(
         }
       } else if (d.type === "viewport") {
         onViewport?.();
+      } else if (d.type === "drawStart") {
+        onDrawStart?.(d.html as string);
       } else if (d.type === "drawn") {
         onDrawn?.();
       } else if (d.type === "claude") {
@@ -173,7 +177,7 @@ export const Canvas = forwardRef<CanvasHandle, Props>(function Canvas(
     }
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [refineMode, textEdit, onSelected, onDrawn, onTextEditStart, onTextCommit, onViewport, onClaudeRequest]);
+  }, [refineMode, textEdit, onSelected, onDrawStart, onDrawn, onTextEditStart, onTextCommit, onViewport, onClaudeRequest]);
 
   useEffect(() => {
     postCmd({ __vd_cmd: "enable", value: refineMode });

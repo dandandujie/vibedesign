@@ -1,7 +1,8 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { ProviderConfig } from "./providers/index.js";
 import { moduleDir, dataDir } from "./paths.js";
+import { readJsonFile, writeJsonAtomic } from "./jsonFile.js";
 
 const DATA_DIR = dataDir(join(moduleDir, "..", ".data"));
 const CONFIG_FILE = join(DATA_DIR, "config.json");
@@ -17,17 +18,12 @@ function ensureDir() {
 
 function read(): AppConfig {
   ensureDir();
-  if (!existsSync(CONFIG_FILE)) return { providers: [], activeProviderId: null };
-  try {
-    return JSON.parse(readFileSync(CONFIG_FILE, "utf8"));
-  } catch {
-    return { providers: [], activeProviderId: null };
-  }
+  return readJsonFile<AppConfig>(CONFIG_FILE, { providers: [], activeProviderId: null });
 }
 
 function write(cfg: AppConfig) {
   ensureDir();
-  writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2));
+  writeJsonAtomic(CONFIG_FILE, cfg);
 }
 
 export function getProviders(): ProviderConfig[] {
@@ -56,13 +52,17 @@ export function getProvidersMasked(): { config: AppConfig } {
 export function upsertProvider(p: ProviderConfig): AppConfig {
   const cfg = read();
   const idx = cfg.providers.findIndex((x) => x.id === p.id);
-  // Preserve existing key when the UI sends a masked placeholder.
-  if (idx >= 0 && (!p.apiKey || /^•+$/.test(p.apiKey))) {
-    p.apiKey = cfg.providers[idx].apiKey;
+  const next = { ...p };
+  if (/^•+$/.test(next.apiKey)) {
+    const existing = idx >= 0 ? cfg.providers[idx] : undefined;
+    if (!existing || existing.baseUrl !== next.baseUrl) {
+      throw new Error("masked API key can only be reused for the same provider and base URL");
+    }
+    next.apiKey = existing.apiKey;
   }
-  if (idx >= 0) cfg.providers[idx] = p;
-  else cfg.providers.push(p);
-  if (!cfg.activeProviderId) cfg.activeProviderId = p.id;
+  if (idx >= 0) cfg.providers[idx] = next;
+  else cfg.providers.push(next);
+  if (!cfg.activeProviderId) cfg.activeProviderId = next.id;
   write(cfg);
   return cfg;
 }

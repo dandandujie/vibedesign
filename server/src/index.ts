@@ -49,7 +49,25 @@ import { moduleDir } from "./paths.js";
 import { randomUUID } from "node:crypto";
 
 const app = express();
-app.use(cors());
+
+function isLocalOrigin(origin: string): boolean {
+  try {
+    const url = new URL(origin);
+    return (url.protocol === "http:" || url.protocol === "https:") && (url.hostname === "localhost" || url.hostname === "127.0.0.1");
+  } catch {
+    return false;
+  }
+}
+
+app.use((req, res, next) => {
+  const host = req.headers.host ?? "";
+  const origin = req.headers.origin;
+  if (!/^(localhost|127\.0\.0\.1)(:\d{1,5})?$/i.test(host) || (origin && !isLocalOrigin(origin))) {
+    return res.status(403).json({ error: "local requests only" });
+  }
+  next();
+});
+app.use(cors({ origin: (origin, done) => done(null, !origin || isLocalOrigin(origin)) }));
 app.use(express.json({ limit: "25mb" }));
 
 const PORT = Number(process.env.PORT ?? 8787);
@@ -75,8 +93,12 @@ app.get("/api/meta", (_req, res) => {
 app.post("/api/providers", (req, res) => {
   const p = req.body as ProviderConfig;
   if (!p?.id || !p.name || !p.format) return res.status(400).json({ error: "missing fields" });
-  const cfg = upsertProvider(p);
-  res.json({ ok: true, activeProviderId: cfg.activeProviderId });
+  try {
+    const cfg = upsertProvider(p);
+    res.json({ ok: true, activeProviderId: cfg.activeProviderId });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+  }
 });
 
 app.delete("/api/providers/:id", (req, res) => {
@@ -265,16 +287,57 @@ app.delete("/api/live-artifacts/:id", (req, res) => {
 // Headless Chromium seeks the artifact's animation timeline frame-by-frame,
 // ffmpeg encodes the frames to MP4/WebM. Slow (seconds); returns the bytes.
 
+const MAX_RENDER_HTML_BYTES = 5 * 1024 * 1024;
+const MAX_CONCURRENT_RENDERS = 2;
+let activeRenders = 0;
+
+async function runBoundedRender<T>(
+  res: express.Response,
+  timeoutMs: number,
+  task: (signal: AbortSignal) => Promise<T>,
+): Promise<T> {
+  if (activeRenders >= MAX_CONCURRENT_RENDERS) throw Object.assign(new Error("render capacity reached"), { status: 429 });
+  activeRenders += 1;
+  const ac = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    ac.abort(new Error(`render timed out after ${timeoutMs}ms`));
+  }, timeoutMs);
+  const onClose = () => {
+    if (!res.writableEnded) ac.abort(new Error("client disconnected"));
+  };
+  res.once("close", onClose);
+  try {
+    return await task(ac.signal);
+  } catch (err) {
+    if (timedOut) throw Object.assign(new Error(`render timed out after ${timeoutMs}ms`), { status: 504 });
+    throw err;
+  } finally {
+    clearTimeout(timer);
+    res.off("close", onClose);
+    activeRenders -= 1;
+  }
+}
+
+function renderError(res: express.Response, err: unknown): void {
+  if (res.destroyed || res.writableEnded) return;
+  const status = typeof err === "object" && err && "status" in err ? Number(err.status) : 500;
+  res.status(Number.isInteger(status) ? status : 500).json({ error: err instanceof Error ? err.message : String(err) });
+}
+
 app.post("/api/render-motion", async (req, res) => {
   const { html, ...opts } = req.body as { html?: string } & MotionRenderOpts;
   if (!html || typeof html !== "string") return res.status(400).json({ error: "html required" });
+  if (Buffer.byteLength(html, "utf8") > MAX_RENDER_HTML_BYTES) return res.status(413).json({ error: "html too large" });
   try {
-    const { buffer, mime, ext } = await renderMotionVideo(html, opts);
+    const { buffer, mime, ext } = await runBoundedRender(res, 120_000, (signal) => renderMotionVideo(html, opts, signal));
+    if (res.destroyed || res.writableEnded) return;
     res.setHeader("Content-Type", mime);
     res.setHeader("Content-Disposition", `attachment; filename="motion.${ext}"`);
     res.send(buffer);
   } catch (err) {
-    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    renderError(res, err);
   }
 });
 
@@ -282,13 +345,15 @@ app.post("/api/render-motion", async (req, res) => {
 app.post("/api/render-screenshot", async (req, res) => {
   const { html, ...opts } = req.body as { html?: string } & ShotOpts;
   if (!html || typeof html !== "string") return res.status(400).json({ error: "html required" });
+  if (Buffer.byteLength(html, "utf8") > MAX_RENDER_HTML_BYTES) return res.status(413).json({ error: "html too large" });
   try {
-    const { buffer, mime, ext } = await renderScreenshot(html, opts);
+    const { buffer, mime, ext } = await runBoundedRender(res, 45_000, (signal) => renderScreenshot(html, opts, signal));
+    if (res.destroyed || res.writableEnded) return;
     res.setHeader("Content-Type", mime);
     res.setHeader("Content-Disposition", `attachment; filename="design.${ext}"`);
     res.send(buffer);
   } catch (err) {
-    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    renderError(res, err);
   }
 });
 
@@ -392,11 +457,11 @@ app.post("/api/chat", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, "127.0.0.1", () => {
   const n = getProviders().length;
   const recovered = recoverStaleLiveRefreshes(); // clear locks/statuses from a crashed run
   console.log(
-    `[vibedesign] server on http://localhost:${PORT}  (${n} provider${n === 1 ? "" : "s"} configured` +
+    `[vibedesign] server on http://127.0.0.1:${PORT}  (${n} provider${n === 1 ? "" : "s"} configured` +
       (recovered ? `, recovered ${recovered} stale refresh${recovered === 1 ? "" : "es"}` : "") +
       `)`,
   );

@@ -46,6 +46,8 @@ export type StreamEvent =
 
 export type StreamFn = (req: StreamRequest) => AsyncGenerator<StreamEvent>;
 
+const MAX_SSE_BUFFER_BYTES = 1024 * 1024;
+
 // Shared helper: turn a fetch Response body into an async iterator of decoded
 // text chunks. Works for all SSE-style provider streams.
 export async function* readSSE(res: Response, signal: AbortSignal): AsyncGenerator<string> {
@@ -57,15 +59,24 @@ export async function* readSSE(res: Response, signal: AbortSignal): AsyncGenerat
     while (true) {
       if (signal.aborted) break;
       const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
+      buffer += done ? decoder.decode() : decoder.decode(value, { stream: true });
       // Emit complete SSE events (separated by blank lines) as they arrive.
-      let idx: number;
-      while ((idx = buffer.indexOf("\n\n")) !== -1) {
+      let match: RegExpExecArray | null;
+      while ((match = /\r?\n\r?\n/.exec(buffer)) !== null) {
+        const idx = match.index;
         const chunk = buffer.slice(0, idx);
-        buffer = buffer.slice(idx + 2);
+        buffer = buffer.slice(idx + match[0].length);
+        if (Buffer.byteLength(chunk, "utf8") > MAX_SSE_BUFFER_BYTES) {
+          await reader.cancel();
+          throw new Error(`SSE event exceeds ${MAX_SSE_BUFFER_BYTES} bytes`);
+        }
         yield chunk;
       }
+      if (Buffer.byteLength(buffer, "utf8") > MAX_SSE_BUFFER_BYTES) {
+        await reader.cancel();
+        throw new Error(`SSE event exceeds ${MAX_SSE_BUFFER_BYTES} bytes`);
+      }
+      if (done) break;
     }
     if (buffer.trim()) yield buffer;
   } finally {
@@ -76,7 +87,7 @@ export async function* readSSE(res: Response, signal: AbortSignal): AsyncGenerat
 // Extract the `data:` payload lines from one SSE event block.
 export function dataLines(block: string): string[] {
   const out: string[] = [];
-  for (const raw of block.split("\n")) {
+  for (const raw of block.split(/\r?\n/)) {
     const line = raw.trimStart();
     if (line.startsWith("data:")) out.push(line.slice(5).trim());
   }

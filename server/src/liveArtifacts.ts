@@ -1,7 +1,8 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, appendFileSync, readdirSync, unlinkSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { moduleDir, dataDir } from "./paths.js";
 import { getStreamFn, ProviderConfig } from "./providers/index.js";
+import { readJsonFile, writeJsonAtomic } from "./jsonFile.js";
 
 // Live Artifacts (MVP): a design output whose presentation (templateHtml) and
 // data (dataJson) are stored separately. The data layer can be "refreshed" —
@@ -63,16 +64,11 @@ function ensureDir() {
 }
 function readAll(): LiveArtifact[] {
   ensureDir();
-  if (!existsSync(FILE)) return [];
-  try {
-    return JSON.parse(readFileSync(FILE, "utf8"));
-  } catch {
-    return [];
-  }
+  return readJsonFile<LiveArtifact[]>(FILE, []);
 }
 function writeAll(list: LiveArtifact[]) {
   ensureDir();
-  writeFileSync(FILE, JSON.stringify(list, null, 2));
+  writeJsonAtomic(FILE, list);
 }
 
 export function listLiveArtifacts(projectId?: string): LiveArtifact[] {
@@ -83,6 +79,7 @@ export function getLiveArtifact(id: string): LiveArtifact | undefined {
   return readAll().find((a) => a.id === id);
 }
 export function saveLiveArtifact(a: LiveArtifact): LiveArtifact {
+  assertArtifactId(a.id);
   const all = readAll();
   a.updatedAt = Date.now();
   const i = all.findIndex((x) => x.id === a.id);
@@ -92,8 +89,9 @@ export function saveLiveArtifact(a: LiveArtifact): LiveArtifact {
   return a;
 }
 export function deleteLiveArtifact(id: string): void {
+  assertArtifactId(id);
   writeAll(readAll().filter((a) => a.id !== id));
-  const d = join(DATA_DIR, "live-artifacts", id.replace(/[^a-zA-Z0-9_-]/g, "_"));
+  const d = laDir(id);
   if (existsSync(d)) rmSync(d, { recursive: true, force: true });
 }
 
@@ -102,6 +100,8 @@ export function deleteLiveArtifact(id: string): void {
 // refresh.lock.json, refreshes.jsonl (append-only audit), and snapshots/<rid>/.
 
 const LA_DIR = join(DATA_DIR, "live-artifacts");
+const ARTIFACT_ID_RE = /^[a-zA-Z0-9_-]+$/;
+const REFRESH_ID_RE = /^refresh-\d{6}$/;
 
 export interface RefreshLogEntry {
   refreshId: string;
@@ -110,8 +110,24 @@ export interface RefreshLogEntry {
   summary?: string; // e.g. data keys, or an error
 }
 
+function assertArtifactId(id: string): void {
+  if (!ARTIFACT_ID_RE.test(id)) throw new Error("invalid live artifact id");
+}
+
+function assertRefreshId(refreshId: string): void {
+  if (!REFRESH_ID_RE.test(refreshId)) throw new Error("invalid refresh id");
+}
+
+function resolveInside(root: string, ...parts: string[]): string {
+  const base = resolve(root);
+  const target = resolve(base, ...parts);
+  if (target === base || !target.startsWith(base + sep)) throw new Error("sidecar path escapes live artifact directory");
+  return target;
+}
+
 function laDir(id: string): string {
-  return join(LA_DIR, id.replace(/[^a-zA-Z0-9_-]/g, "_"));
+  assertArtifactId(id);
+  return resolveInside(LA_DIR, id);
 }
 function ensureLaDir(id: string): string {
   const d = laDir(id);
@@ -123,19 +139,17 @@ function ensureLaDir(id: string): string {
 function nextRefreshId(id: string): string {
   const d = ensureLaDir(id);
   const stateFile = join(d, "refresh-state.json");
-  let counter = 0;
-  try {
-    counter = JSON.parse(readFileSync(stateFile, "utf8")).counter ?? 0;
-  } catch {
-    /* first refresh */
-  }
+  let counter = readJsonFile<{ counter?: number }>(stateFile, {}).counter ?? 0;
   counter += 1;
-  writeFileSync(stateFile, JSON.stringify({ counter }));
-  return "refresh-" + String(counter).padStart(6, "0");
+  const refreshId = "refresh-" + String(counter).padStart(6, "0");
+  assertRefreshId(refreshId);
+  writeJsonAtomic(stateFile, { counter });
+  return refreshId;
 }
 
 // Exclusive lock via wx (fail if exists) — blocks concurrent refreshes.
 function acquireLock(id: string, refreshId: string): void {
+  assertRefreshId(refreshId);
   const lock = join(ensureLaDir(id), "refresh.lock.json");
   try {
     writeFileSync(lock, JSON.stringify({ refreshId, at: Date.now(), pid: process.pid }), { flag: "wx" });
@@ -175,14 +189,16 @@ export function readRefreshLog(id: string): RefreshLogEntry[] {
 }
 
 function writeSnapshot(id: string, refreshId: string, data: unknown): void {
-  const snapDir = join(ensureLaDir(id), "snapshots", refreshId);
+  assertRefreshId(refreshId);
+  const snapDir = resolveInside(ensureLaDir(id), "snapshots", refreshId);
   mkdirSync(snapDir, { recursive: true });
-  writeFileSync(join(snapDir, "data.json"), JSON.stringify(data, null, 2));
+  writeJsonAtomic(join(snapDir, "data.json"), data);
 }
 export function readSnapshot(id: string, refreshId: string): unknown {
-  const f = join(laDir(id), "snapshots", refreshId, "data.json");
+  assertRefreshId(refreshId);
+  const f = resolveInside(laDir(id), "snapshots", refreshId, "data.json");
   if (!existsSync(f)) return undefined;
-  return JSON.parse(readFileSync(f, "utf8"));
+  return readJsonFile<unknown>(f, undefined);
 }
 
 // Startup recovery: any artifact stuck "running" (server died mid-refresh) is
@@ -240,6 +256,10 @@ export function renderLiveHtml(templateHtml: string, data: unknown): string {
 
 function setByPath(obj: Record<string, unknown>, path: string, value: unknown) {
   const parts = path.split(".").filter(Boolean);
+  if (!parts.length) throw new Error("mapping target path is empty");
+  for (const part of parts) {
+    if (FORBIDDEN_PATH_SEGMENTS.has(part)) throw new Error(`mapping target contains forbidden path segment: ${part}`);
+  }
   let cur = obj;
   for (let i = 0; i < parts.length - 1; i++) {
     const k = parts[i];
@@ -248,6 +268,8 @@ function setByPath(obj: Record<string, unknown>, path: string, value: unknown) {
   }
   cur[parts[parts.length - 1]] = value;
 }
+
+const FORBIDDEN_PATH_SEGMENTS = new Set(["__proto__", "prototype", "constructor"]);
 
 function extractJson(text: string): unknown {
   // tolerate a fenced ```json block or raw JSON with surrounding prose
@@ -349,6 +371,7 @@ export function assertSafeHttpUrl(raw: string): URL {
 
 const HTTP_JSON_TIMEOUT_MS = 30_000;
 const HTTP_JSON_MAX_BYTES = 2 * 1024 * 1024; // cap the response body
+const HTTP_JSON_MAX_REDIRECTS = 5;
 
 // Massage a picked value before it is written into the data shape.
 function applyTransform(value: unknown, kind: LiveTransform | undefined): unknown {
@@ -383,14 +406,23 @@ function applyMapping(raw: unknown, currentData: unknown, mapping: LiveMapping[]
 
 // Fetch a public JSON endpoint with the byte cap + timeout applied.
 async function fetchBoundedJson(url: string): Promise<unknown> {
-  assertSafeHttpUrl(url);
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), HTTP_JSON_TIMEOUT_MS);
   try {
-    const res = await fetch(url, { headers: { accept: "application/json" }, redirect: "follow", signal: ac.signal });
+    let current = assertSafeHttpUrl(url);
+    let res: Response | undefined;
+    for (let redirects = 0; redirects <= HTTP_JSON_MAX_REDIRECTS; redirects++) {
+      res = await fetch(current, { headers: { accept: "application/json" }, redirect: "manual", signal: ac.signal });
+      if (![301, 302, 303, 307, 308].includes(res.status)) break;
+      if (redirects === HTTP_JSON_MAX_REDIRECTS) throw new Error(`source redirected more than ${HTTP_JSON_MAX_REDIRECTS} times`);
+      const location = res.headers.get("location");
+      if (!location) throw new Error(`source redirect ${res.status} missing location`);
+      current = assertSafeHttpUrl(new URL(location, current).href);
+    }
+    if (!res) throw new Error("source request failed");
     if (!res.ok) throw new Error(`source returned ${res.status}`);
-    const reader = res.body?.getReader();
-    if (!reader) return await res.json();
+    if (!res.body) throw new Error("source response has no body");
+    const reader = res.body.getReader();
     const chunks: Uint8Array[] = [];
     let total = 0;
     for (;;) {
