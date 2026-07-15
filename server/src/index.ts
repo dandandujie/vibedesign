@@ -93,6 +93,7 @@ app.get("/api/meta", (_req, res) => {
 app.post("/api/providers", (req, res) => {
   const p = req.body as ProviderConfig;
   if (!p?.id || !p.name || !p.format) return res.status(400).json({ error: "missing fields" });
+  if (!(p.format in DEFAULT_BASE_URLS)) return res.status(400).json({ error: `unknown provider format: ${p.format}` });
   try {
     const cfg = upsertProvider(p);
     res.json({ ok: true, activeProviderId: cfg.activeProviderId });
@@ -436,12 +437,16 @@ app.post("/api/chat", async (req, res) => {
     if (!res.writableEnded) ac.abort();
   });
 
-  const ds = designSystemId ? getDesignSystem(designSystemId, lang) : undefined;
-  let system = buildSystem(skillId, ds);
-  if (extraInstruction) system += `\n\n---\n\n# Active mode\n\n${extraInstruction}`;
-  const streamFn = getStreamFn(provider.format);
-
   try {
+    // Build inside the try: an unknown provider.format (or a bad skill/design
+    // system) must surface as an SSE error event, not an uncaught async throw —
+    // the response headers are already flushed, so an escaped throw would crash
+    // the whole Express process (in the desktop build, that is the Electron main
+    // process) instead of failing this one request.
+    const ds = designSystemId ? getDesignSystem(designSystemId, lang) : undefined;
+    let system = buildSystem(skillId, ds);
+    if (extraInstruction) system += `\n\n---\n\n# Active mode\n\n${extraInstruction}`;
+    const streamFn = getStreamFn(provider.format);
     for await (const evt of streamFn({ system, messages, config: provider, signal: ac.signal })) {
       if (evt.type === "done") break; // finally 统一发 done，避免重复
       send(evt);
