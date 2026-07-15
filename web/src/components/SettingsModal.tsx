@@ -44,7 +44,13 @@ export function SettingsModal({ meta, onClose, onChanged }: Props) {
     const e = { ...editing };
     if (!e.name.trim()) e.name = FORMATS.find((f) => f.v === e.format)?.label ?? "Provider";
     if (!e.model.trim()) return alert(t("请填写模型名称（model）"));
-    await saveProvider(e);
+    try {
+      await saveProvider(e);
+    } catch (err) {
+      // e.g. reusing a masked key while changing baseUrl/format — the server
+      // rejects it; surface it instead of closing as if the edit was saved.
+      return alert(err instanceof Error ? err.message : String(err));
+    }
     setEditing(null);
     onChanged();
   };

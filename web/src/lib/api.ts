@@ -85,11 +85,18 @@ export async function fetchMeta(): Promise<Meta> {
 }
 
 export async function saveProvider(p: ProviderConfig): Promise<void> {
-  await fetch("/api/providers", {
+  const r = await fetch("/api/providers", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(p),
   });
+  if (!r.ok) {
+    const msg = await r
+      .json()
+      .then((b) => b.error as string)
+      .catch(() => `HTTP ${r.status}`);
+    throw new Error(msg || `HTTP ${r.status}`);
+  }
 }
 
 export async function deleteProvider(id: string): Promise<void> {
