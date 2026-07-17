@@ -28,6 +28,11 @@ function createWindow() {
 
   // External links open in the system browser, not in-app.
   win.webContents.setWindowOpenHandler(({ url }) => {
+    // Popups the app opens itself with self-contained content: presenter /
+    // audience windows (blob: URLs) and the print-to-PDF window
+    // (window.open("") → about:blank). Denying these silently breaks Present
+    // and Share → PDF in the packaged desktop app; they work in the browser.
+    if (url === "" || url === "about:blank" || url.startsWith("blob:")) return { action: "allow" };
     let target;
     try {
       target = new URL(url);

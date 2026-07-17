@@ -240,6 +240,7 @@ function ExtraInput({
     "text shadow": { prop: "textShadow", initial: selected.styles.textShadow || "0 1px 2px rgba(0,0,0,.25)", hint: "0 1px 2px rgba(0,0,0,.25)" },
     transform: { prop: "transform", initial: selected.styles.transform || "rotate(0deg)", hint: "rotate(3deg) scale(1.02)" },
     filter: { prop: "filter", initial: selected.styles.filter || "blur(0px)", hint: "blur(2px) saturate(1.2)" },
+    border: { prop: "border", initial: selected.styles.border || "1px solid #e5e5e5", hint: "1px solid #e5e5e5" },
   };
   const cfg = propMap[kind];
   const [v, setV] = useState(cfg.initial);
