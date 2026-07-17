@@ -25,4 +25,3 @@ export const DEFAULT_BASE_URLS: Record<ProviderFormat, string> = {
   "openai-responses": "https://api.openai.com/v1",
   gemini: "https://generativelanguage.googleapis.com/v1beta",
 };
-
