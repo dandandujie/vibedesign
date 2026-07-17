@@ -93,7 +93,9 @@ app.get("/api/meta", (_req, res) => {
 app.post("/api/providers", (req, res) => {
   const p = req.body as ProviderConfig;
   if (!p?.id || !p.name || !p.format) return res.status(400).json({ error: "missing fields" });
-  if (!(p.format in DEFAULT_BASE_URLS)) return res.status(400).json({ error: `unknown provider format: ${p.format}` });
+  if (!Object.hasOwn(DEFAULT_BASE_URLS, p.format)) {
+    return res.status(400).json({ error: `unknown provider format: ${p.format}` });
+  }
   try {
     const cfg = upsertProvider(p);
     res.json({ ok: true, activeProviderId: cfg.activeProviderId });
@@ -471,3 +473,4 @@ app.listen(PORT, "127.0.0.1", () => {
       `)`,
   );
 });
+

@@ -14,9 +14,8 @@ const REGISTRY: Record<ProviderFormat, StreamFn> = {
 };
 
 export function getStreamFn(format: ProviderFormat): StreamFn {
-  const fn = REGISTRY[format];
-  if (!fn) throw new Error(`unknown provider format: ${format}`);
-  return fn;
+  if (!Object.hasOwn(REGISTRY, format)) throw new Error(`unknown provider format: ${format}`);
+  return REGISTRY[format];
 }
 
 // Sensible default base URLs, offered to the UI when adding a provider.
@@ -26,3 +25,4 @@ export const DEFAULT_BASE_URLS: Record<ProviderFormat, string> = {
   "openai-responses": "https://api.openai.com/v1",
   gemini: "https://generativelanguage.googleapis.com/v1beta",
 };
+
