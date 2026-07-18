@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { t } from "../lib/i18n";
-import { ChatMessage, Meta } from "../lib/api";
+import { AgentRunState, ChatMessage, Meta } from "../lib/api";
 import { stripArtifact, extractArtifact, extractForm } from "../lib/artifact";
 import { renderMarkdown } from "../lib/markdown";
 import { AgentSteps } from "./AgentSteps";
@@ -13,6 +13,7 @@ interface Props {
   artifactName: string;
   messages: ChatMessage[];
   streaming: boolean;
+  agentRun: AgentRunState | null;
   meta: Meta | null;
   onMetaChanged: () => void;
   activeSkill: SkillEntry | null;
@@ -59,6 +60,7 @@ export function ChatPanel({
   artifactName,
   messages,
   streaming,
+  agentRun,
   meta,
   onMetaChanged,
   activeSkill,
@@ -138,7 +140,7 @@ export function ChatPanel({
           const hasForm = extractForm(m.content) != null;
           return (
             <div key={i} id={`msg-${i}`} className="msg assistant" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <AgentSteps content={m.content} streaming={isLastAssistant && streaming} />
+              {isLastAssistant && agentRun && <AgentSteps run={agentRun} />}
               {hasArtifact && !(isLastAssistant && streaming) && (
                 <div className="file-chip">
                   <span>📄</span>

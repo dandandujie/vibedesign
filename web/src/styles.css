@@ -228,63 +228,150 @@ code,
   padding: 1px 4px;
 }
 
-/* agent step groups (✦ pill rows) */
-.steps-group {
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-panel);
-  border-radius: 8px;
-  padding: 5px 8px;
+/* Agent activity: truthful server phases, quiet by default, detailed on demand. */
+.agent-activity {
+  overflow: hidden;
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--bg-panel) 88%, var(--accent) 12%);
+  box-shadow: var(--shadow-xs);
+}
+.agent-activity-head {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 9px;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 13.5px;
-  color: var(--text-secondary);
-  width: 100%;
+  gap: 8px;
   text-align: left;
 }
-.steps-group:hover {
-  background: var(--bg-muted);
+.agent-activity-head:hover {
+  background: var(--bg-hover);
 }
-.steps-group .spark {
+.agent-signal {
+  width: 16px;
+  height: 16px;
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, transparent);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.agent-signal > span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.agent-activity.is-running .agent-signal {
+  animation: agent-pulse 1.8s ease-out infinite;
+}
+.agent-activity.is-completed .agent-signal {
+  border-color: color-mix(in srgb, #558a42 45%, transparent);
+}
+.agent-activity.is-completed .agent-signal > span {
+  background: #558a42;
+}
+.agent-activity.is-stopped .agent-signal,
+.agent-activity.is-error .agent-signal {
+  border-color: color-mix(in srgb, var(--accent-error) 42%, transparent);
+}
+.agent-activity.is-stopped .agent-signal > span,
+.agent-activity.is-error .agent-signal > span {
+  background: var(--accent-error);
+}
+@keyframes agent-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 22%, transparent); }
+  70%, 100% { box-shadow: 0 0 0 6px transparent; }
+}
+.agent-activity-title {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 520;
+}
+.agent-elapsed {
+  flex: none;
   color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
 }
-.steps-group .chev {
-  margin-left: auto;
+.agent-chevron {
+  flex: none;
   color: var(--text-tertiary);
+  transition: transform 160ms ease;
 }
-.step-live {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13.5px;
-  color: var(--text-secondary);
-  padding: 2px 0;
+.agent-chevron.open {
+  transform: rotate(180deg);
 }
-.step-live .spark {
-  color: var(--accent);
-  animation: spin 1.6s linear infinite;
-  display: inline-block;
-}
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-.steps-detail {
+.agent-step-list {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: 4px 2px 2px 6px;
+  gap: 0;
+  padding: 1px 12px 10px 17px;
+  border-top: 1px solid var(--border-subtle);
 }
-.steps-detail .row {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  font-size: 13px;
+.agent-step {
+  position: relative;
+  min-height: 27px;
+  padding: 7px 0 2px 20px;
+  color: var(--text-disabled);
+  font-size: 12px;
+  line-height: 18px;
+}
+.agent-step:not(:last-of-type)::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 19px;
+  bottom: -8px;
+  width: 1px;
+  background: var(--border-default);
+}
+.agent-step-mark {
+  position: absolute;
+  left: 0;
+  top: 13px;
+  width: 9px;
+  height: 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--bg-panel);
+}
+.agent-step.done,
+.agent-step.current {
   color: var(--text-secondary);
 }
-.steps-detail .row .ok {
-  color: #558a42;
+.agent-step.done .agent-step-mark {
+  border-color: #558a42;
+  background: #558a42;
+  box-shadow: inset 0 0 0 2px var(--bg-panel);
+}
+.agent-step.current .agent-step-mark {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-bg);
+}
+.agent-step.interrupted {
+  color: var(--accent-error);
+}
+.agent-step.interrupted .agent-step-mark {
+  border-color: var(--accent-error);
+  background: var(--accent-error);
+}
+.agent-activity-note {
+  margin: 7px 0 0 20px;
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+  line-height: 1.45;
 }
 
 /* file chip + action rows */
@@ -714,29 +801,63 @@ code,
   display: grid;
   place-items: center;
 }
-.canvas-loading .bar {
-  width: 68px;
-  height: 3px;
-  border-radius: 99px;
-  background: var(--bg-active);
-  overflow: hidden;
-  position: relative;
+.canvas-loading-card {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-width: 280px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-lg);
+  background: color-mix(in srgb, var(--bg-surface) 92%, var(--accent) 8%);
+  box-shadow: var(--shadow-diffuse);
 }
-.canvas-loading .bar::after {
+.canvas-loading-card > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.canvas-loading-card strong {
+  font-size: 13px;
+  font-weight: 560;
+}
+.canvas-loading-card > div > span {
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+}
+.canvas-loader {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
+  border-radius: 50%;
+}
+.canvas-loader::before {
   content: "";
   position: absolute;
-  inset: 0;
-  width: 40%;
-  background: var(--accent);
-  border-radius: 99px;
-  animation: slide 1.2s ease-in-out infinite;
+  inset: 4px;
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, transparent);
+  border-radius: 50%;
 }
-@keyframes slide {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(250%);
+.canvas-loader > span {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  left: 11px;
+  top: 11px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 -10px 0 -1px var(--accent);
+  animation: canvas-orbit 1.4s linear infinite;
+}
+@keyframes canvas-orbit {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .agent-activity.is-running .agent-signal,
+  .canvas-loader > span {
+    animation: none;
   }
 }
 

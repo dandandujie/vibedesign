@@ -203,8 +203,14 @@ export const Canvas = forwardRef<CanvasHandle, Props>(function Canvas(
       )}
 
       {!html && awaitingArtifact && (
-        <div className="canvas-loading">
-          <div className="bar" />
+        <div className="canvas-loading" role="status" aria-live="polite">
+          <div className="canvas-loading-card">
+            <span className="canvas-loader" aria-hidden="true"><span /></span>
+            <div>
+              <strong>{t("Agent 正在创建设计")}</strong>
+              <span>{t("首个可预览版本生成后会自动显示")}</span>
+            </div>
+          </div>
         </div>
       )}
 

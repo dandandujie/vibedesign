@@ -113,8 +113,22 @@ export async function setActiveProvider(id: string): Promise<void> {
 
 export interface StreamHandlers {
   onText: (delta: string) => void;
+  onStatus?: (phase: AgentPhase) => void;
+  onHeartbeat?: () => void;
   onError: (msg: string) => void;
   onDone: () => void;
+}
+
+export type AgentPhase = "preparing" | "requesting" | "generating" | "finalizing";
+export type AgentRunStatus = "running" | "completed" | "stopped" | "error";
+
+export interface AgentRunState {
+  phase: AgentPhase;
+  status: AgentRunStatus;
+  startedAt: number;
+  phaseStartedAt: number;
+  lastActivityAt: number;
+  endedAt?: number;
 }
 
 // Stream a chat completion. Returns an abort function.
@@ -159,6 +173,8 @@ export function streamChat(
           try {
             const evt = JSON.parse(line.slice(5).trim());
             if (evt.type === "text") handlers.onText(evt.text);
+            else if (evt.type === "status") handlers.onStatus?.(evt.phase as AgentPhase);
+            else if (evt.type === "heartbeat") handlers.onHeartbeat?.();
             else if (evt.type === "error") handlers.onError(evt.error);
             else if (evt.type === "done") {
               handlers.onDone();

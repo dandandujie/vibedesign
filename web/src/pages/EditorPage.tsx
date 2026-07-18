@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { t, getLang } from "../lib/i18n";
-import { ChatMessage, Meta, streamChat, saveDesignSystem } from "../lib/api";
+import { AgentRunState, ChatMessage, Meta, streamChat, saveDesignSystem } from "../lib/api";
 import { extractArtifact, extractDeliverable, extractForm, extractProps, extractDesignSystemSpec, extractDesignSystemTokens, stripWorkingAttrs, extractLiveSpec, extractFiles } from "../lib/artifact";
 import { LiveArtifact, createLiveArtifact, getLiveArtifact } from "../lib/liveApi";
 import { LiveArtifactViewer } from "../components/LiveArtifactViewer";
@@ -47,6 +47,7 @@ interface Props {
 export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: Props) {
   const [proj, setProj] = useState<Project | null>(null);
   const [streaming, setStreaming] = useState(false);
+  const [agentRun, setAgentRun] = useState<AgentRunState | null>(null);
   const [activeSkill, setActiveSkill] = useState<SkillEntry | null>(null);
   const [skillsOpen, setSkillsOpen] = useState(false);
   // Pending skill-inputs form: shown once (before generation) when the picked
@@ -118,6 +119,10 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
 
   useEffect(() => {
     let stale = false;
+    abortRef.current?.();
+    abortRef.current = null;
+    setStreaming(false);
+    setAgentRun(null);
     setProj(null);
     setTool(null);
     setSelected(null);
@@ -182,7 +187,15 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
 
   // ---- Chat turn ----------------------------------------------------------
   const runTurn = (sendMessages: ChatMessage[]) => {
+    const startedAt = Date.now();
     setStreaming(true);
+    setAgentRun({
+      phase: "preparing",
+      status: "running",
+      startedAt,
+      phaseStartedAt: startedAt,
+      lastActivityAt: startedAt,
+    });
     setError(null);
     setSelected(null);
     bufRef.current = "";
@@ -199,6 +212,8 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
       },
       {
         onText: (delta) => {
+          const now = Date.now();
+          setAgentRun((prev) => (prev ? { ...prev, lastActivityAt: now } : prev));
           bufRef.current += delta;
           const buf = bufRef.current;
           setProj((prev) => {
@@ -212,9 +227,39 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
             return { ...prev, messages: msgs };
           });
         },
-        onError: (msg) => setError(msg),
+        onStatus: (phase) => {
+          const now = Date.now();
+          setAgentRun((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  phase,
+                  phaseStartedAt: phase === prev.phase ? prev.phaseStartedAt : now,
+                  lastActivityAt: now,
+                }
+              : prev,
+          );
+        },
+        onHeartbeat: () => {
+          const now = Date.now();
+          setAgentRun((prev) => (prev?.status === "running" ? { ...prev, lastActivityAt: now } : prev));
+        },
+        onError: (msg) => {
+          const now = Date.now();
+          setError(msg);
+          setAgentRun((prev) =>
+            prev ? { ...prev, status: "error", lastActivityAt: now, endedAt: now } : prev,
+          );
+        },
         onDone: () => {
+          const now = Date.now();
+          abortRef.current = null;
           setStreaming(false);
+          setAgentRun((prev) =>
+            prev?.status === "running"
+              ? { ...prev, status: "completed", lastActivityAt: now, endedAt: now }
+              : prev,
+          );
           const buf = bufRef.current;
           const lastUserAll = [...sendMessages].reverse().find((m) => m.role === "user");
           const promptAll = lastUserAll ? lastUserAll.content.split(/```|\n（/)[0].trim().slice(0, 60) : undefined;
@@ -364,6 +409,10 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
   const stop = () => {
     abortRef.current?.();
     setStreaming(false);
+    const now = Date.now();
+    setAgentRun((prev) =>
+      prev?.status === "running" ? { ...prev, status: "stopped", lastActivityAt: now, endedAt: now } : prev,
+    );
   };
 
   // ---- Undo / redo ---------------------------------------------------------
@@ -773,6 +822,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
             artifactName={fileName}
             messages={messages}
             streaming={streaming}
+            agentRun={agentRun}
             meta={meta}
             onMetaChanged={onMetaChanged}
             activeSkill={activeSkill}

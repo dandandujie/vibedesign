@@ -439,7 +439,9 @@ app.post("/api/chat", async (req, res) => {
     if (!res.writableEnded) ac.abort();
   });
 
+  const heartbeat = setInterval(() => send({ type: "heartbeat" }), 10_000);
   try {
+    send({ type: "status", phase: "preparing" });
     // Build inside the try: an unknown provider.format (or a bad skill/design
     // system) must surface as an SSE error event, not an uncaught async throw —
     // the response headers are already flushed, so an escaped throw would crash
@@ -449,16 +451,28 @@ app.post("/api/chat", async (req, res) => {
     let system = buildSystem(skillId, ds);
     if (extraInstruction) system += `\n\n---\n\n# Active mode\n\n${extraInstruction}`;
     const streamFn = getStreamFn(provider.format);
+    send({ type: "status", phase: "requesting" });
+    let generating = false;
+    let failed = false;
     for await (const evt of streamFn({ system, messages, config: provider, signal: ac.signal })) {
       if (evt.type === "done") break; // finally 统一发 done，避免重复
+      if (evt.type === "text" && !generating) {
+        generating = true;
+        send({ type: "status", phase: "generating" });
+      }
       send(evt);
-      if (evt.type === "error") break;
+      if (evt.type === "error") {
+        failed = true;
+        break;
+      }
     }
+    if (!failed && !ac.signal.aborted) send({ type: "status", phase: "finalizing" });
   } catch (err: unknown) {
     if (!ac.signal.aborted) {
       send({ type: "error", error: err instanceof Error ? err.message : String(err) });
     }
   } finally {
+    clearInterval(heartbeat);
     send({ type: "done" });
     res.end();
   }
