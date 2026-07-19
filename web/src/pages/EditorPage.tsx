@@ -5,7 +5,7 @@ import { extractArtifact, extractDeliverable, extractForm, extractProps, extract
 import { LiveArtifact, createLiveArtifact, getLiveArtifact } from "../lib/liveApi";
 import { LiveArtifactViewer } from "../components/LiveArtifactViewer";
 import { ArtifactVersion, SelectedInfo, RectMap, PinTarget } from "../lib/types";
-import { Project, CommentPin, getProject, saveProject, deleteProject, newProject } from "../lib/projects";
+import { Project, CommentPin, getProject, saveProject, deleteProject, newProject, newProjectSession, openProjectWindow } from "../lib/projects";
 import { ChatPanel } from "../components/ChatPanel";
 import { Canvas, CanvasHandle } from "../components/Canvas";
 import { CommentPopover } from "../components/CommentPopover";
@@ -30,6 +30,7 @@ import {
   RefreshIcon,
   PencilIcon,
   CopyIcon,
+  ExternalLink,
   TrashIcon,
   ChevronRight,
 } from "../components/icons";
@@ -388,9 +389,13 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
       return;
     }
     let content = text;
-    if (dirty && canvasRef.current) {
-      const html = await canvasRef.current.serialize();
-      content = `${text}\n\n（这是我在画布上手动微调后的当前设计，请在此基础上修改并重新输出完整文档）\n\n\`\`\`html\n${html}\n\`\`\``;
+    const continuingFromCanvas = messages.length === 0 && !!canvasHtml;
+    if ((dirty || continuingFromCanvas) && canvasHtml) {
+      const html = (await canvasRef.current?.serialize()) || canvasHtml;
+      const note = continuingFromCanvas
+        ? "这是上一会话留下的当前设计。请把它作为本次新会话的起点，只依据本会话的指令继续修改并重新输出完整文档"
+        : "这是我在画布上手动微调后的当前设计，请在此基础上修改并重新输出完整文档";
+      content = `${text}\n\n（${note}）\n\n\`\`\`html\n${html}\n\`\`\``;
       setDirty(false);
     }
     runTurn([...messages, { role: "user", content, ...(images?.length ? { images } : {}) }]);
@@ -695,6 +700,14 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
     setProjMenu(false);
     location.hash = `#/p/${copy.id}`;
   };
+  const openNewSession = async () => {
+    if (!proj) return;
+    const session = newProjectSession(proj);
+    await saveProject(session);
+    setProjMenu(false);
+    openProjectWindow(session.id);
+    setToast(t("Fresh session opened in a new window"));
+  };
   const removeProject = async () => {
     if (!proj) return;
     if (!confirm(`${t("删除项目")}「${proj.name}」？${t("此操作不可撤销。")}`)) return;
@@ -744,6 +757,9 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
                 </button>
                 <button onClick={duplicateProject}>
                   <CopyIcon size={14} /> {t("Duplicate")}
+                </button>
+                <button onClick={() => void openNewSession()}>
+                  <ExternalLink size={14} /> {t("Start fresh session in new window")}
                 </button>
                 <button className="danger" onClick={removeProject}>
                   <TrashIcon size={14} /> {t("Delete project")}

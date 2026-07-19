@@ -2014,6 +2014,21 @@ code,
   background: var(--bg-app);
   z-index: 5;
 }
+.platform-mac .side-head {
+  padding-left: 78px;
+  -webkit-app-region: drag;
+}
+.platform-mac .side-head button,
+.platform-mac .side-head input,
+.platform-mac .side-head .mini-menu {
+  -webkit-app-region: no-drag;
+}
+.platform-mac .app.collapsed .canvas-head {
+  padding-left: 78px;
+}
+.platform-mac .app.collapsed .expand-side {
+  left: 78px;
+}
 .app-badge {
   width: 30px;
   height: 30px;
@@ -2718,6 +2733,13 @@ code,
   background: var(--bg-app);
   z-index: 10;
 }
+.platform-mac .ds-setup-bar {
+  padding-left: 78px;
+  -webkit-app-region: drag;
+}
+.platform-mac .ds-setup-bar button {
+  -webkit-app-region: no-drag;
+}
 .ds-setup-main {
   max-width: 660px;
   margin: 0 auto;
@@ -3160,6 +3182,9 @@ code,
   max-width: 1080px;
   margin: 0 auto;
   width: 100%;
+}
+.platform-mac .home-top {
+  padding-left: max(24px, calc(78px - max(0px, (100vw - 1080px) / 2)));
 }
 .home-top .brand {
   display: flex;

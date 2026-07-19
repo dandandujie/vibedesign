@@ -1,5 +1,6 @@
 import { ChatMessage } from "./api";
 import { ArtifactVersion } from "./types";
+import { getLang } from "./i18n";
 
 // Comment pin attached to an element in the canvas (Comment mode).
 export interface CommentPin {
@@ -22,6 +23,8 @@ export interface Project {
   comments?: CommentPin[];
   designSystemId?: string | null;
   favorite?: boolean;
+  parentProjectId?: string | null;
+  sessionStartedAt?: number;
   updatedAt: number;
 }
 
@@ -70,4 +73,27 @@ export function newProject(name = "Untitled"): Project {
     comments: [],
     updatedAt: Date.now(),
   };
+}
+
+/** Create an independent, short-context continuation from the current canvas. */
+export function newProjectSession(source: Project): Project {
+  const baseName = source.name.replace(/(?: · (?:新会话|New session))+$/, "");
+  return {
+    ...newProject(`${baseName} · ${getLang() === "en" ? "New session" : "新会话"}`),
+    artifacts: structuredClone(source.artifacts),
+    activeVersionId: source.activeVersionId ?? null,
+    liveArtifactId: source.liveArtifactId ?? null,
+    comments: structuredClone(source.comments ?? []),
+    designSystemId: source.designSystemId ?? null,
+    parentProjectId: source.parentProjectId ?? source.id,
+    sessionStartedAt: Date.now(),
+  };
+}
+
+export function openProjectWindow(projectId: string): void {
+  if (window.vd?.openProjectWindow) {
+    window.vd.openProjectWindow(projectId);
+    return;
+  }
+  window.open(`${location.origin}${location.pathname}#/p/${projectId}`, "_blank", "noopener");
 }

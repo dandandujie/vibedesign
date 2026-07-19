@@ -36,6 +36,8 @@ export interface Project {
   artifacts: ArtifactVersion[];
   liveArtifactId?: string | null;
   favorite?: boolean;
+  parentProjectId?: string | null;
+  sessionStartedAt?: number;
   updatedAt: number;
 }
 

@@ -57,6 +57,8 @@ const ZH: Record<string, string> = {
   "Wireframe": "线框图",
   "Animation": "动画",
   "Open in new tab": "在新标签页打开",
+  "Start fresh session in new window": "在新窗口开启新会话",
+  "Fresh session opened in a new window": "已在新窗口开启独立会话",
   "Copy link": "复制链接",
   "Add to favorites": "添加收藏",
   "Remove from favorites": "取消收藏",

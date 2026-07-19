@@ -10,7 +10,7 @@ process.env.PORT = PORT;
 // Boot the bundled Express server (API + static web/dist) in-process.
 require(path.join(__dirname, "..", "server", "dist", "server.cjs"));
 
-function createWindow() {
+function createWindow(route = "") {
   const win = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -18,6 +18,7 @@ function createWindow() {
     minHeight: 640,
     title: "Vibedesign",
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
+    ...(process.platform === "darwin" ? { trafficLightPosition: { x: 14, y: 16 } } : {}),
     backgroundColor: "#faf9f5",
     webPreferences: {
       contextIsolation: true,
@@ -48,7 +49,7 @@ function createWindow() {
   });
 
   // Give the embedded server a beat to bind before loading.
-  setTimeout(() => win.loadURL(`http://127.0.0.1:${PORT}`), 300);
+  setTimeout(() => win.loadURL(`http://127.0.0.1:${PORT}${route}`), 300);
 }
 
 app.whenReady().then(() => {
@@ -60,6 +61,11 @@ app.whenReady().then(() => {
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
+});
+
+ipcMain.on("vd:open-project-window", (_event, projectId) => {
+  if (typeof projectId !== "string" || !/^[\w-]+$/.test(projectId)) return;
+  createWindow(`/#/p/${projectId}`);
 });
 
 // ---- Auto update (user-triggered from the 更新日志 card) ----------------------

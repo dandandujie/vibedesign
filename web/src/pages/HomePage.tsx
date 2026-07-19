@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { t } from "../lib/i18n";
 import { Meta, DesignSystem, listDesignSystems, saveDesignSystem, deleteDesignSystem } from "../lib/api";
-import { Project, ProjectListItem, listProjects, deleteProject, getProject, newProject, saveProject } from "../lib/projects";
+import { Project, ProjectListItem, listProjects, deleteProject, getProject, newProject, newProjectSession, openProjectWindow, saveProject } from "../lib/projects";
 import { filesToDataUrls } from "../components/ChatPanel";
 import { ModelPicker } from "../components/ModelPicker";
 import { ChangelogButton } from "../components/ChangelogButton";
@@ -143,6 +143,16 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
     if (!src) return;
     const copy: Project = { ...src, ...newProject(`${src.name} ${t("副本")}`), messages: src.messages, artifacts: src.artifacts, comments: src.comments, designSystemId: src.designSystemId };
     await saveProject(copy);
+    refresh();
+  };
+
+  const openNewSession = async (id: string) => {
+    const src = await getProject(id);
+    if (!src) return;
+    const session = newProjectSession(src);
+    await saveProject(session);
+    openProjectWindow(session.id);
+    setRowMenu(null);
     refresh();
   };
 
@@ -330,8 +340,8 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
                     </button>
                     {rowMenu === p.id && (
                       <div className="mini-menu" style={{ right: 0 }} ref={clampPop}>
-                        <button onClick={() => window.open(`${location.origin}${location.pathname}#/p/${p.id}`, "_blank")}>
-                          <ExternalLink size={14} /> {t("Open in new tab")}
+                        <button onClick={() => void openNewSession(p.id)}>
+                          <ExternalLink size={14} /> {t("Start fresh session in new window")}
                         </button>
                         <button
                           onClick={async () => {

@@ -16,6 +16,8 @@ interface Release {
 declare global {
   interface Window {
     vd?: {
+      platform: string;
+      openProjectWindow: (projectId: string) => void;
       installUpdate: () => void;
       onUpdateStatus: (cb: (s: string) => void) => void;
     };
