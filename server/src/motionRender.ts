@@ -15,10 +15,11 @@ const FFMPEG = (ffmpegStatic as unknown as string) || "ffmpeg";
 
 export interface MotionRenderOpts {
   fps?: number;
-  durationMs?: number; // override; else derived from the animation loop
+  durationMs?: number; // override; else <body data-duration>; else derived from the animation loop
   width?: number;
   height?: number;
   format?: "mp4" | "webm";
+  onProgress?: (frame: number, total: number) => void; // per captured frame
 }
 
 const MAX_FRAMES = 900; // 30s @ 30fps hard cap
@@ -83,7 +84,10 @@ export async function renderMotionVideo(
     await page.waitForTimeout(200);
 
     // Measure the loop duration and pause every animation so we can seek it.
-    const loopMs: number = await page.evaluate(() => {
+    // An explicit data-duration="<ms>" on <body> (or the root element) wins
+    // over inference — the author declares the timeline length when it isn't
+    // obvious from CSS animations.
+    const { loopMs, declaredMs }: { loopMs: number; declaredMs: number } = await page.evaluate(() => {
       const anims = (document as unknown as { getAnimations: () => Animation[] }).getAnimations();
       let dur = 0;
       for (const a of anims) {
@@ -96,10 +100,12 @@ export async function renderMotionVideo(
           /* ignore */
         }
       }
-      return dur;
+      const holder = document.body ?? document.documentElement;
+      const declared = Number.parseFloat(holder?.getAttribute("data-duration") ?? "");
+      return { loopMs: dur, declaredMs: Number.isFinite(declared) && declared > 0 ? declared : 0 };
     });
 
-    const durationMs = Math.min(30_000, Math.max(300, opts.durationMs ?? (loopMs > 0 ? loopMs : 4000)));
+    const durationMs = Math.min(30_000, Math.max(300, opts.durationMs ?? (declaredMs > 0 ? declaredMs : loopMs > 0 ? loopMs : 4000)));
     const frames = Math.min(MAX_FRAMES, Math.max(2, Math.round((durationMs / 1000) * fps)));
 
     for (let f = 0; f < frames; f++) {
@@ -117,6 +123,11 @@ export async function renderMotionVideo(
       }, t);
       const shot = await page.screenshot({ type: "png", clip: { x: 0, y: 0, width, height } });
       await writeFile(join(dir, `f${String(f).padStart(5, "0")}.png`), shot);
+      try {
+        opts.onProgress?.(f + 1, frames);
+      } catch {
+        /* progress reporting must never kill the render */
+      }
     }
 
     const outPath = join(dir, `out.${format}`);

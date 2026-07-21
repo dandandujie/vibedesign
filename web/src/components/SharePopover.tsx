@@ -1,20 +1,25 @@
 import { useEffect, useRef, useState } from "react";
 import { t } from "../lib/i18n";
 import { clampPop } from "../lib/popover";
-import { buildDesignManifest, buildHandoffMd } from "../lib/handoff";
+import { download, exportHandoffZip, exportSiteZip, safeName } from "../lib/exporters";
+import { ArtifactVersion } from "../lib/types";
 
 interface Props {
   artifactHtml: string | null;
   projectName: string;
+  version?: ArtifactVersion | null; // active version — enables the site ZIP export for multifile/site artifacts
   exportPng?: (selector: string | null, scale: number) => Promise<string | null>;
 }
 
 // Share popover per field study §9: access section + Copy link, then an
 // Export list (PDF / Standalone HTML / PowerPoint / More formats).
-export function SharePopover({ artifactHtml, projectName, exportPng }: Props) {
+export function SharePopover({ artifactHtml, projectName, version, exportPng }: Props) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [videoOpen, setVideoOpen] = useState(false);
+  const [videoOpts, setVideoOpts] = useState({ fps: 30, size: "1280x720", format: "mp4" as "mp4" | "webm" });
+  const [videoProgress, setVideoProgress] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -26,16 +31,7 @@ export function SharePopover({ artifactHtml, projectName, exportPng }: Props) {
     return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
 
-  const safe = (projectName || "design").replace(/[^\w一-龥-]+/g, "-");
-
-  const download = (name: string, content: string | Blob, type = "text/html") => {
-    const blob = content instanceof Blob ? content : new Blob([content], { type });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = name;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  };
+  const safe = safeName(projectName);
 
   // Prefer the native save dialog (Chromium); fall back to a plain download.
   const saveDataUrl = async (name: string, dataUrl: string) => {
@@ -96,21 +92,50 @@ export function SharePopover({ artifactHtml, projectName, exportPng }: Props) {
   const exportVideo = async () => {
     if (!artifactHtml) return;
     setBusy("video");
+    setVideoProgress(null);
     try {
+      const [vw, vh] = videoOpts.size.split("x").map(Number);
       const r = await fetch("/api/render-motion", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ html: artifactHtml, fps: 30, width: 1280, height: 720, format: "mp4" }),
+        body: JSON.stringify({ html: artifactHtml, stream: true, fps: videoOpts.fps, width: vw, height: vh, format: videoOpts.format }),
       });
-      if (!r.ok) {
+      if (!r.ok || !r.body) {
         const e = await r.json().catch(() => ({}));
         throw new Error(e.error ?? "渲染失败");
       }
-      download(`${safe}.mp4`, await r.blob(), "video/mp4");
+      // SSE stream: per-frame progress events, then a base64 result event.
+      const reader = r.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      let gotResult = false;
+      while (true) {
+        const { done, value } = await reader.read();
+        buf += done ? decoder.decode() : decoder.decode(value, { stream: true });
+        let idx;
+        while ((idx = buf.indexOf("\n\n")) >= 0) {
+          const chunk = buf.slice(0, idx);
+          buf = buf.slice(idx + 2);
+          const line = chunk.split("\n").find((l) => l.startsWith("data:"));
+          if (!line) continue;
+          const evt = JSON.parse(line.slice(5));
+          if (evt.type === "progress") setVideoProgress(`${evt.frame}/${evt.total}`);
+          else if (evt.type === "error") throw new Error(evt.error ?? "渲染失败");
+          else if (evt.type === "result") {
+            const blob = await (await fetch(`data:video/${evt.format};base64,${evt.data}`)).blob();
+            download(`${safe}.${evt.format}`, blob, `video/${evt.format}`);
+            gotResult = true;
+          }
+        }
+        if (done) break;
+      }
+      if (!gotResult) throw new Error("渲染未返回结果");
+      setVideoOpen(false);
     } catch (e) {
       alert(`视频导出失败：${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setBusy(null);
+      setVideoProgress(null);
     }
   };
 
@@ -129,15 +154,11 @@ export function SharePopover({ artifactHtml, projectName, exportPng }: Props) {
     setTimeout(() => w.print(), 400);
   };
 
-  const exportBundle = async () => {
-    if (!artifactHtml) return;
-    const { default: JSZip } = await import("jszip");
-    const zip = new JSZip();
-    zip.file("index.html", artifactHtml);
-    zip.file("DESIGN-HANDOFF.md", buildHandoffMd(artifactHtml, projectName));
-    zip.file("DESIGN-MANIFEST.json", JSON.stringify(buildDesignManifest(artifactHtml, projectName), null, 2));
-    download(`${safe}-handoff.zip`, await zip.generateAsync({ type: "blob" }), "application/zip");
-  };
+  const exportBundle = () => artifactHtml && exportHandoffZip(artifactHtml, projectName);
+
+  // Multi-page site / flow prototype: zip every file as-is plus a site manifest
+  // (pages + flows + shared tokens) and an agent-facing handoff brief.
+  const exportSite = () => version && exportSiteZip(version, projectName);
 
   return (
     <div className="share-wrap" ref={ref}>
@@ -191,6 +212,16 @@ export function SharePopover({ artifactHtml, projectName, exportPng }: Props) {
             </span>
             <span className="go">{t("Download")}</span>
           </button>
+          {version?.kind === "multifile" && version.files && (
+            <button className="export-item" onClick={exportSite}>
+              <span className="ic">🗂</span>
+              <span className="tx">
+                <span className="t">{t("站点 ZIP")}</span>
+                <span className="d">{t("全部页面文件 + SITE-MANIFEST.json")}</span>
+              </span>
+              <span className="go">{t("Download")}</span>
+            </button>
+          )}
           <button className="export-item" onClick={exportMd} disabled={!artifactHtml}>
             <span className="ic">📝</span>
             <span className="tx">
@@ -270,14 +301,50 @@ export function SharePopover({ artifactHtml, projectName, exportPng }: Props) {
             </span>
             <span className="go">{copied ? "✓" : t("Copy")}</span>
           </button>
-          <button className="export-item" onClick={exportVideo} disabled={!artifactHtml || busy === "video"}>
+          <button
+            className="export-item"
+            onClick={() => !busy && setVideoOpen((v) => !v)}
+            disabled={!artifactHtml || busy === "video"}
+          >
             <span className="ic">🎬</span>
             <span className="tx">
-              <span className="t">{t("Video (MP4)")}</span>
-              <span className="d">{busy === "video" ? "渲染中…（无头逐帧）" : "Render the animation as MP4"}</span>
+              <span className="t">{t("Video")}</span>
+              <span className="d">
+                {busy === "video" ? `渲染中…${videoProgress ? ` ${videoProgress}` : ""}` : t("MP4/WebM · 可选帧率与尺寸")}
+              </span>
             </span>
-            <span className="go">{t("Download")}</span>
+            <span className="go">{videoOpen ? "▴" : "▾"}</span>
           </button>
+          {videoOpen && busy !== "video" && (
+            <div className="video-opts">
+              <label>
+                {t("帧率")}
+                <select value={videoOpts.fps} onChange={(e) => setVideoOpts((o) => ({ ...o, fps: Number(e.target.value) }))}>
+                  <option value={24}>24 fps</option>
+                  <option value={30}>30 fps</option>
+                  <option value={60}>60 fps</option>
+                </select>
+              </label>
+              <label>
+                {t("尺寸")}
+                <select value={videoOpts.size} onChange={(e) => setVideoOpts((o) => ({ ...o, size: e.target.value }))}>
+                  <option value="1280x720">1280 × 720</option>
+                  <option value="1920x1080">1920 × 1080</option>
+                  <option value="1080x1920">1080 × 1920（竖屏）</option>
+                </select>
+              </label>
+              <label>
+                {t("格式")}
+                <select value={videoOpts.format} onChange={(e) => setVideoOpts((o) => ({ ...o, format: e.target.value as "mp4" | "webm" }))}>
+                  <option value="mp4">MP4</option>
+                  <option value="webm">WebM</option>
+                </select>
+              </label>
+              <button className="btn black small" onClick={exportVideo}>
+                {t("开始渲染")}
+              </button>
+            </div>
+          )}
           <button className="export-item" onClick={() => exportPixel("png")} disabled={!artifactHtml || busy === "pxpng"}>
             <span className="ic">🖼</span>
             <span className="tx">

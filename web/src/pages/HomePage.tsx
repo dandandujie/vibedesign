@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { t } from "../lib/i18n";
 import { Meta, DesignSystem, listDesignSystems, saveDesignSystem, deleteDesignSystem } from "../lib/api";
-import { Project, ProjectListItem, listProjects, deleteProject, getProject, newProject, newProjectSession, openProjectWindow, saveProject } from "../lib/projects";
+import { Project, ProjectListItem, listProjects, deleteProject, getProject, newProject, newProjectSession, saveProject } from "../lib/projects";
 import { filesToDataUrls } from "../components/ChatPanel";
 import { ModelPicker } from "../components/ModelPicker";
 import { ChangelogButton } from "../components/ChangelogButton";
@@ -151,9 +151,9 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
     if (!src) return;
     const session = newProjectSession(src);
     await saveProject(session);
-    openProjectWindow(session.id);
     setRowMenu(null);
-    refresh();
+    // Same window: keeps canvas/versions, drops chat history.
+    location.hash = `#/p/${session.id}`;
   };
 
   const rename = async (id: string, name: string) => {
@@ -341,7 +341,7 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
                     {rowMenu === p.id && (
                       <div className="mini-menu" style={{ right: 0 }} ref={clampPop}>
                         <button onClick={() => void openNewSession(p.id)}>
-                          <ExternalLink size={14} /> {t("Start fresh session in new window")}
+                          <ExternalLink size={14} /> {t("开启新会话（保留画布，清空对话）")}
                         </button>
                         <button
                           onClick={async () => {

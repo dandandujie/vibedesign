@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { t, getLang } from "../lib/i18n";
 import { AgentRunState, ChatMessage, Meta, streamChat, saveDesignSystem } from "../lib/api";
-import { extractArtifact, extractDeliverable, extractForm, extractProps, extractDesignSystemSpec, extractDesignSystemTokens, stripWorkingAttrs, extractLiveSpec, extractFiles } from "../lib/artifact";
+import { extractArtifact, extractDeliverable, extractForm, extractProps, extractDesignSystemSpec, extractDesignSystemTokens, stripWorkingAttrs, extractLiveSpec, extractFiles, extractSite, SiteManifest } from "../lib/artifact";
 import { LiveArtifact, createLiveArtifact, getLiveArtifact } from "../lib/liveApi";
 import { LiveArtifactViewer } from "../components/LiveArtifactViewer";
 import { ArtifactVersion, SelectedInfo, RectMap, PinTarget } from "../lib/types";
-import { Project, CommentPin, getProject, saveProject, deleteProject, newProject, newProjectSession, openProjectWindow } from "../lib/projects";
+import { Project, CommentPin, getProject, saveProject, deleteProject, newProject, newProjectSession } from "../lib/projects";
 import { ChatPanel } from "../components/ChatPanel";
 import { Canvas, CanvasHandle } from "../components/Canvas";
 import { CommentPopover } from "../components/CommentPopover";
@@ -14,11 +14,13 @@ import { TweaksPanel, TweaksAsk } from "../components/TweaksPanel";
 import { QuestionFormView } from "../components/QuestionFormView";
 import { openPresenter, looksLikeDeck } from "../lib/presenter";
 import { MultiFileViewer } from "../components/MultiFileViewer";
+import { PhoneFrame, PhoneShell, SHELL_OPTIONS } from "../components/PhoneFrame";
 import { CommentsPanel } from "../components/CommentsPanel";
 import { AnnotateDrawOverlay, Mark, ANNOTATE_ACCENT } from "../components/AnnotateDrawOverlay";
 import { EditPanel } from "../components/EditPanel";
 import { EditTool } from "../components/EditToolbar";
 import { PresentOverlay } from "../components/PresentOverlay";
+import { VersionManager } from "../components/VersionManager";
 import { PalettePopover } from "../components/PalettePopover";
 import { SkillsModal } from "../components/SkillsModal";
 import { SkillEntry } from "../lib/skillCatalog";
@@ -72,9 +74,11 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
   const [redoStack, setRedoStack] = useState<string[]>([]);
   const [pinRects, setPinRects] = useState<RectMap>({}); // live positions of comment pins
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [vmOpen, setVmOpen] = useState(false);
   const [drawAnnotate, setDrawAnnotate] = useState(false); // visual-annotation draw mode
   const [liveArt, setLiveArt] = useState<LiveArtifact | null>(null); // active Live artifact
   const [device, setDevice] = useState<"web" | "mobile" | "app">("web"); // prototype viewport
+  const [shell, setShell] = useState<PhoneShell>(() => (localStorage.getItem("vd_shell") as PhoneShell) || "dark");
 
   const canvasRef = useRef<CanvasHandle>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -264,10 +268,36 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
           const buf = bufRef.current;
           const lastUserAll = [...sendMessages].reverse().find((m) => m.role === "user");
           const promptAll = lastUserAll ? lastUserAll.content.split(/```|\n（/)[0].trim().slice(0, 60) : undefined;
-          // Multi-file artifact (```vdfiles): preview.entry + sibling files, served
-          // over /api/mf. Additive — supersedes the single-file deliverable path.
-          const mf = extractFiles(buf);
-          const deliverable = mf ? null : extractDeliverable(buf);
+          // Site / flow prototype (```vdsite): multi-page artifact — checked
+          // BEFORE plain vdfiles. Then multi-file (```vdfiles): preview.entry +
+          // sibling files, served over /api/mf. Both supersede the single-file
+          // deliverable path.
+          const site = extractSite(buf);
+          const mf = site ? null : extractFiles(buf);
+          const deliverable = site || mf ? null : extractDeliverable(buf);
+          if (site) {
+            const v: ArtifactVersion = {
+              id: crypto.randomUUID(),
+              html: site.files[site.entry] ?? "",
+              label: buf.match(/^####\s+(.+)$/m)?.[1]?.trim().slice(0, 40) ?? `站点 · ${site.site?.pages?.length ?? 0} 页`,
+              createdAt: Date.now(),
+              kind: "multifile",
+              source: "ai",
+              files: site.files,
+              entry: site.entry,
+              ...(site.site ? { site: site.site } : {}),
+              ...(promptAll ? { prompt: promptAll } : {}),
+            };
+            setProj((prev) => {
+              if (!prev) return prev;
+              const next = { ...prev, artifacts: [...prev.artifacts, v], activeVersionId: v.id, liveArtifactId: null };
+              void saveProject(next); // persist immediately so /api/mf can serve it before the iframe loads
+              return next;
+            });
+            setEditDraft(null);
+            setDirty(false);
+            setLiveArt(null);
+          }
           if (mf) {
             const v: ArtifactVersion = {
               id: crypto.randomUUID(),
@@ -496,8 +526,35 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
     setToast("已存为新版本");
   };
 
-  const discardEdit = () => {
-    setEditDraft(null);
+  // Site page management (MultiFileViewer): rename/reorder/delete/add page —
+  // every edit becomes a new manual version so the history stays append-only.
+  const editSitePages = (files: Record<string, string>, site: SiteManifest) => {
+    if (!activeVersion || activeVersion.kind !== "multifile") return;
+    const entry =
+      activeVersion.entry && files[activeVersion.entry]
+        ? activeVersion.entry
+        : Object.keys(files).find((p) => /\.html?$/i.test(p)) ?? "";
+    const v: ArtifactVersion = {
+      id: crypto.randomUUID(),
+      html: files[entry] ?? "",
+      label: `${activeVersion.label} · ${t("页面调整")}`,
+      createdAt: Date.now(),
+      kind: "multifile",
+      source: "manual",
+      files,
+      entry,
+      site,
+    };
+    setProj((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, artifacts: [...prev.artifacts, v], activeVersionId: v.id };
+      void saveProject(next); // persist so /api/mf serves the edited files immediately
+      return next;
+    });
+    setToast(t("已存为新版本"));
+  };
+
+  const discardEdit = () => {    setEditDraft(null);
     setDirty(false);
     setSelected(null);
     setUndoStack([]);
@@ -705,8 +762,11 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
     const session = newProjectSession(proj);
     await saveProject(session);
     setProjMenu(false);
-    openProjectWindow(session.id);
-    setToast(t("Fresh session opened in a new window"));
+    // Same window: the new session keeps canvas/versions/comments/design system
+    // but drops chat history — navigating achieves the fresh-context goal
+    // without a second window.
+    location.hash = `#/p/${session.id}`;
+    setToast(t("已开启新会话（保留画布，清空对话）"));
   };
   const removeProject = async () => {
     if (!proj) return;
@@ -759,7 +819,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
                   <CopyIcon size={14} /> {t("Duplicate")}
                 </button>
                 <button onClick={() => void openNewSession()}>
-                  <ExternalLink size={14} /> {t("Start fresh session in new window")}
+                  <ExternalLink size={14} /> {t("开启新会话（保留画布，清空对话）")}
                 </button>
                 <button className="danger" onClick={removeProject}>
                   <TrashIcon size={14} /> {t("Delete project")}
@@ -903,13 +963,18 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
               {fileName}
             </span>
           )}
+          {artifacts.length >= 1 && (
+            <button className="iconbtn vm-open" title={t("版本管理（搜索 / 预览 / 恢复 / 导出）")} onClick={() => setVmOpen(true)}>
+              🗂 {t("版本")}
+            </button>
+          )}
           <div className="spacer" />
           <div className="device-switch" role="group" aria-label={t("预览设备")}>
             {(
               [
-                ["web", "▭", "Web（桌面）"],
-                ["mobile", "▯", "移动端"],
-                ["app", "▤", "移动端应用"],
+                ["web", "Web", "Web（桌面）"],
+                ["mobile", "手机", "移动端（手机壳预览）"],
+                ["app", "App", "移动端应用（手机壳 + 状态栏）"],
               ] as ["web" | "mobile" | "app", string, string][]
             ).map(([id, ic, label]) => (
               <button
@@ -919,10 +984,28 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
                 disabled={!canvasHtml || streaming}
                 onClick={() => setDevice(id)}
               >
-                {ic}
+                {t(ic)}
               </button>
             ))}
           </div>
+          {device !== "web" && (
+            <select
+              className="shell-pick"
+              value={shell}
+              title={t("真机壳样式")}
+              onChange={(e) => {
+                const s = e.target.value as PhoneShell;
+                setShell(s);
+                localStorage.setItem("vd_shell", s);
+              }}
+            >
+              {SHELL_OPTIONS.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {t(o.label)}
+                </option>
+              ))}
+            </select>
+          )}
           <button
             className={`tool-toggle ${tool === "annotate" ? "on" : ""}`}
             onClick={() => switchTool("annotate")}
@@ -1010,6 +1093,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
           <SharePopover
             artifactHtml={activeVersion ? stripWorkingAttrs(activeVersion.html) : null}
             projectName={proj.name}
+            version={activeVersion}
             exportPng={(sel, scale) => canvasRef.current?.exportPng(sel, scale) ?? Promise.resolve(null)}
           />
           <button className="btn small" onClick={onOpenSettings} title={t("模型服务（BYOK）")}>
@@ -1021,29 +1105,35 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
           {skillInputForm && activeSkill?.inputs && !streaming ? (
             <QuestionFormView form={activeSkill.inputs} onSubmit={submitSkillInputs} />
           ) : activeVersion?.kind === "multifile" && !streaming ? (
-            <MultiFileViewer projectId={projectId} version={activeVersion} />
+            <MultiFileViewer projectId={projectId} version={activeVersion} onEditSite={editSitePages} device={device} shell={shell} />
           ) : liveArt && !streaming ? (
             <LiveArtifactViewer live={liveArt} providerId={meta?.activeProviderId} onChanged={setLiveArt} />
           ) : pendingForm ? (
             <QuestionFormView form={pendingForm} onSubmit={submitFormAnswers} />
           ) : (
-            <Canvas
-              key={reloadNonce}
-              ref={canvasRef}
-              html={canvasHtml}
-              refineMode={refineActive}
-              textEdit={tool === "edit" && editTool === "select" && !streaming}
-              dimmed={tool === "annotate" && !selected}
-              streaming={streaming}
-              awaitingArtifact={awaitingArtifact}
-              onSelected={setSelected}
-              onDrawStart={snapshotBeforeDraw}
-              onDrawn={onDrawn}
-              onTextEditStart={onTextEditStart}
-              onTextCommit={onTextCommit}
-              onViewport={onViewport}
-              onClaudeRequest={onClaudeRequest}
-            />
+            (() => {
+              const canvas = (
+                <Canvas
+                  key={reloadNonce}
+                  ref={canvasRef}
+                  html={canvasHtml}
+                  refineMode={refineActive}
+                  textEdit={tool === "edit" && editTool === "select" && !streaming}
+                  dimmed={tool === "annotate" && !selected}
+                  streaming={streaming}
+                  awaitingArtifact={awaitingArtifact}
+                  onSelected={setSelected}
+                  onDrawStart={snapshotBeforeDraw}
+                  onDrawn={onDrawn}
+                  onTextEditStart={onTextEditStart}
+                  onTextCommit={onTextCommit}
+                  onViewport={onViewport}
+                  onClaudeRequest={onClaudeRequest}
+                />
+              );
+              // mobile / mobile-app: wrap any design in the host phone shell
+              return device === "web" ? canvas : <PhoneFrame shell={shell}>{canvas}</PhoneFrame>;
+            })()
           )}
           {tool === "annotate" && !selected && canvasHtml && <div className="mode-pill">{t("Click to comment")}</div>}
           {toast && <div className="mode-pill" style={{ background: "var(--accent-black)" }}>{toast}</div>}
@@ -1155,6 +1245,38 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
           title={proj.name}
           fullscreen={presenting === "fullscreen"}
           onExit={() => setPresenting(null)}
+        />
+      )}
+
+      {vmOpen && (
+        <VersionManager
+          projectId={projectId}
+          projectName={proj.name}
+          artifacts={artifacts}
+          activeVersionId={activeVersionId}
+          onClose={() => setVmOpen(false)}
+          onActivate={(id) => {
+            patch({ activeVersionId: id });
+            setEditDraft(null);
+            setDirty(false);
+            clearSelection();
+          }}
+          onRestore={(v) => {
+            // Restore = a new version that copies the chosen one (history stays
+            // append-only; the restore itself is undoable by switching back).
+            const nv: ArtifactVersion = {
+              ...v,
+              id: crypto.randomUUID(),
+              createdAt: Date.now(),
+              source: "restore",
+              restoreFromVersionId: v.id,
+            };
+            patch({ artifacts: [...artifacts, nv], activeVersionId: nv.id });
+            setEditDraft(null);
+            setDirty(false);
+            clearSelection();
+            setToast("已恢复为该版本（存为新版本）");
+          }}
         />
       )}
 

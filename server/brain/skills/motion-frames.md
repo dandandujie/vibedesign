@@ -1,6 +1,6 @@
 ---
 name: motion-frames
-craft: [typography, color]
+craft: [typography, color, motion-direction, motion-transitions]
 triggers: [motion design, motion graphic, animated hero, loop animation, video poster, title card, hyperframes, kinetic typography, 动态设计, 动效]
 ---
 

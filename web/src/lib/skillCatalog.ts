@@ -61,6 +61,32 @@ export const SKILL_GROUPS: SkillGroup[] = [
     icon: "▤",
     entries: [
       {
+        title: "Site prototype",
+        desc: "多页站点 / 流程原型（共享样式 + 页面互联）",
+        skillId: "site-prototype",
+        inputs: {
+          title: "Site prototype — 关键输入",
+          questions: [
+            { id: "product", label: "什么产品 / 网站 & 一句话定位", type: "text", hint: "如：一个面向独立开发者的记账 SaaS" },
+            { id: "pages", label: "要哪些页面", type: "text", hint: "如：首页 / 定价 / 注册 / 引导 / 仪表盘（3-7 页为宜）" },
+            { id: "flow", label: "必须点通的核心流程", type: "text", optional: true, hint: "如：落地页 → 注册 → 引导 → 仪表盘" },
+            { id: "density", label: "页面密度", type: "chips", options: ["营销页（内容丰富）", "应用页（功能为主）", "混合"], decide: true },
+          ],
+        },
+      },
+      {
+        title: "Mobile flow board",
+        desc: "App 流程线框板（一排灰盒手机框 + 步骤箭头）",
+        skillId: "mobile-flow",
+        inputs: {
+          title: "Mobile flow — 关键输入",
+          questions: [
+            { id: "app", label: "什么 App & 一句话定位", type: "text", hint: "如：一个二手市集 App" },
+            { id: "steps", label: "流程步骤（3-4 屏）", type: "text", hint: "如：引导 → 首页 feed → 商品详情 → 确认下单" },
+          ],
+        },
+      },
+      {
         title: "Web prototype",
         desc: "通用桌面网页（landing/docs/官网）",
         skillId: "web-prototype",

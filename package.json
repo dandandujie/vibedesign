@@ -14,6 +14,7 @@
     "dev": "concurrently -n server,web -c cyan,magenta \"npm --prefix server run dev\" \"npm --prefix web run dev\"",
     "dev:server": "npm --prefix server run dev",
     "dev:web": "npm --prefix web run dev",
+    "install:agents": "node integrations/install.mjs",
     "build": "npm --prefix web run build && npm --prefix server run bundle",
     "app": "npm run build && electron .",
     "dist:mac": "npm run build && electron-builder --mac",

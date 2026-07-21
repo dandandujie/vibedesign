@@ -19,6 +19,18 @@ await build({
   external: ["playwright", "playwright-core", "ffmpeg-static"],
 });
 
+// MCP stdio server for coding-agent integration (Claude Code / Codex / Cursor).
+// Runs as a standalone process spawned by the agent CLI — bundle everything
+// (incl. the MCP SDK) so agents only need Node on PATH.
+await build({
+  entryPoints: ["src/mcp.ts"],
+  bundle: true,
+  platform: "node",
+  format: "cjs",
+  outfile: "dist/mcp.cjs",
+  banner: { js: "#!/usr/bin/env node" },
+});
+
 rmSync("dist/brain", { recursive: true, force: true });
 cpSync("brain", "dist/brain", { recursive: true });
-console.log("[bundle] dist/server.cjs + dist/brain ready");
+console.log("[bundle] dist/server.cjs + dist/mcp.cjs + dist/brain ready");

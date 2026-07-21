@@ -105,3 +105,99 @@ ${m.responsiveViewports.map((v) => `- ${v.name}: ${v.w}×${v.h}`).join("\n")}
 ${m.implementationChecklist.map((c) => `- [ ] ${c}`).join("\n")}
 `;
 }
+
+// ---- Site / flow prototype handoff (multi-page vdsite artifacts) -------------
+
+export interface SiteMeta {
+  pages: { path: string; title: string }[];
+  flows?: { name: string; steps: string[] }[];
+}
+
+export interface SiteManifest {
+  schema: string;
+  name: string;
+  entry: string;
+  generatedBy: string;
+  pages: { path: string; title: string }[];
+  flows: { name: string; steps: string[] }[];
+  tokens: { name: string; value: string }[];
+  structure: DesignManifest["structure"];
+  interactions: string[];
+  responsiveViewports: typeof RESPONSIVE_MATRIX;
+  implementationChecklist: string[];
+}
+
+export function buildSiteManifest(name: string, entry: string, files: Record<string, string>, site?: SiteMeta): SiteManifest {
+  const pages = site?.pages?.length
+    ? site.pages
+    : Object.keys(files)
+        .filter((p) => /\.html?$/i.test(p))
+        .map((p) => ({ path: p, title: p }));
+  const allHtml = pages.map((p) => files[p.path] ?? "").join("\n");
+  const css = Object.entries(files)
+    .filter(([p]) => p.endsWith(".css"))
+    .map(([, c]) => c)
+    .join("\n");
+  return {
+    schema: "vibedesign.site-manifest/v1",
+    name,
+    entry,
+    generatedBy: "Vibedesign",
+    pages,
+    flows: site?.flows ?? [],
+    tokens: extractTokens(css || allHtml),
+    structure: {
+      headings: ["h1", "h2", "h3", "h4", "h5", "h6"].reduce((n, h) => n + countTag(allHtml, h), 0),
+      buttons: countTag(allHtml, "button"),
+      links: countTag(allHtml, "a"),
+      images: countTag(allHtml, "img"),
+      sections: countTag(allHtml, "section") + countTag(allHtml, "main") + countTag(allHtml, "header") + countTag(allHtml, "footer"),
+      forms: countTag(allHtml, "form"),
+    },
+    interactions: detectInteractions(allHtml + "\n" + css),
+    responsiveViewports: RESPONSIVE_MATRIX,
+    implementationChecklist: [
+      `Preserve every page listed in pages[] (${pages.length}) and their relative links — the flows must click through end-to-end.`,
+      "Bind the shared styles.css tokens into the target framework's theme; keep ONE source of truth for tokens.",
+      "Keep header/nav/footer identical across pages, including the current-page state.",
+      "Reproduce every interaction state (hover / focus / active / disabled / loading / empty / error).",
+      "Verify the responsive viewports listed in this manifest.",
+      "Keep copy verbatim — do not invent metrics or placeholder text.",
+    ],
+  };
+}
+
+export function buildSiteHandoffMd(name: string, entry: string, files: Record<string, string>, site?: SiteMeta): string {
+  const m = buildSiteManifest(name, entry, files, site);
+  const tokenLines = m.tokens.length
+    ? m.tokens.map((t) => `- \`${t.name}\`: \`${t.value}\``).join("\n")
+    : "_No `:root` tokens declared in styles.css._";
+  return `# ${name} — site prototype handoff
+
+A multi-page prototype produced with Vibedesign. Pages share \`styles.css\` (all
+tokens in one \`:root{}\`) and interlink with relative hrefs; \`site.json\` (when
+present) lists pages and flows. Entry: \`${entry}\`.
+
+## For a coding agent
+Rebuild the site in the project's framework page by page, preserving the shared
+token system and chrome exactly. Read \`SITE-MANIFEST.json\` (schema
+\`${m.schema}\`) for the machine-readable spec.
+
+## Pages (${m.pages.length})
+${m.pages.map((p) => `- \`${p.path}\` — ${p.title}`).join("\n")}
+${
+  m.flows.length
+    ? `\n## Flows\n${m.flows.map((f) => `- **${f.name}**: ${f.steps.map((s) => `\`${s}\``).join(" → ")}`).join("\n")}\n`
+    : ""
+}
+## Design tokens
+${tokenLines}
+
+## Structure at a glance (all pages combined)
+- Headings: ${m.structure.headings} · Buttons: ${m.structure.buttons} · Links: ${m.structure.links} · Images: ${m.structure.images} · Sections: ${m.structure.sections} · Forms: ${m.structure.forms}
+- Interactions: ${m.interactions.length ? m.interactions.join(", ") : "none detected"}
+
+## Implementation checklist
+${m.implementationChecklist.map((c) => `- [ ] ${c}`).join("\n")}
+`;
+}

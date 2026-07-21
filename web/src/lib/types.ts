@@ -57,6 +57,8 @@ export interface TreeNode {
 
 export type VersionSource = "ai" | "manual" | "restore";
 
+import type { SiteManifest } from "../../../shared/extract";
+
 export interface ArtifactVersion {
   id: string;
   html: string;
@@ -70,6 +72,9 @@ export interface ArtifactVersion {
   // served over /api/mf. `html` mirrors the entry so single-file paths still work.
   files?: Record<string, string>;
   entry?: string;
+  // Site / flow prototype (from a ```vdsite block): page list + user flows from
+  // the site.json manifest — drives the page tabs in the multi-file viewer.
+  site?: SiteManifest;
 }
 
 export type Device = "desktop" | "tablet" | "mobile";

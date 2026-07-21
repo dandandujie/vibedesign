@@ -191,6 +191,18 @@ console.log("ready");
 
 Rules: the first line is \`entry: <path>\` naming the HTML the preview loads (defaults to the first \`.html\` if omitted). Then one \`=== <relative/path> ===\` marker per file, followed by its raw contents (no inner code fences, no escaping). Reference siblings with RELATIVE urls (\`./styles.css\`, \`./app.js\`, \`./components/card.js\`) — they are served next to the entry. Each file is complete and real; no placeholders. Everything the design needs must be inside the block (CDN links for fonts/libraries are fine; local assets must be files in the block). Use \`vdfiles\` only for genuinely multi-file requests; a normal design stays a single \`html\` block.
 
+## Site / flow prototypes (multi-page, \`vdsite\`)
+
+When the deliverable is a MULTI-PAGE prototype — a small site, an app flow (onboarding → dashboard → settings), a funnel (landing → pricing → checkout) — output ONE fenced block tagged \`vdsite\` instead of \`html\`/\`vdfiles\`. Same wire format as \`vdfiles\` (an \`entry:\` line + \`=== path ===\` sections), with these site rules:
+
+- **Pages**: one complete \`.html\` per page. Every page links the SHARED stylesheet \`<link rel="stylesheet" href="./styles.css">\` — all design tokens live in ONE \`:root{}\` there, so the whole site stays consistent and re-themable in one place.
+- **Navigation**: pages interlink with RELATIVE hrefs (\`<a href="./checkout.html">\`). Repeat the same header/nav (and footer) markup on every page — there is no build step or templating, so shared chrome is duplicated verbatim; mark the current page's nav item with an \`aria-current="page"\` state class.
+- **Manifest**: include a \`=== site.json ===\` file with \`{"pages":[{"path":"index.html","title":"Home"},…],"flows":[{"name":"Signup","steps":["index.html","signup.html","welcome.html"]}]}\` — the host renders page tabs from it. List every \`.html\` page in reading order.
+- **Completeness over depth**: on first generation, get EVERY page working and linked (real layout, real copy, honest placeholders for imagery) rather than polishing one page — the user navigates the flow on canvas, then asks to deepen individual pages.
+- **Iteration**: on follow-ups, re-output the COMPLETE \`vdsite\` block with all files — pages not being changed stay byte-identical; refine only the named page/flow. Never drop \`site.json\` or the shared \`styles.css\` between iterations.
+
+A single-page design is still the default — use \`vdsite\` only when the brief genuinely spans multiple pages or the site-prototype skill is active.
+
 ## Quality bar — avoid AI-slop (always on)
 
 Every design must clear this floor (the tells that mark "default LLM output"). The active craft references below may expand on these; these apply even when none are loaded:

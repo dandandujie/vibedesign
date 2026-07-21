@@ -1,5 +1,5 @@
 ---
-craft: [typography, color]
+craft: [typography, color, motion-direction, motion-transitions]
 triggers: [motion, animation, animate, animated, loop, 动效, 动画, hyperframe, 逐帧, motion graphic]
 ---
 
@@ -27,6 +27,9 @@ Output a normal ` ```html ` block (the standard delivery contract). It must:
 - Be **deterministic** — do NOT drive motion from `Math.random()` or `Date.now()`.
   Seed any variation from fixed values so every playthrough is identical (this is
   what lets a clean GIF be captured).
+- **Declare the total duration** — when the timeline's length isn't obvious from
+  the CSS animations, put `data-duration="<ms>"` on `<body>` so the video
+  renderer captures the full piece instead of guessing.
 - Honor `@media (prefers-reduced-motion: reduce)` — fall back to a static,
   composed final frame.
 

@@ -1,6 +1,7 @@
 import { readFileSync, mkdirSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { ChatMessage } from "./providers/index.js";
+import { SiteManifest } from "../../shared/extract.js";
 import { moduleDir, dataDir } from "./paths.js";
 import { readJsonFile, writeJsonAtomic } from "./jsonFile.js";
 
@@ -27,6 +28,9 @@ export interface ArtifactVersion {
   // file so single-file code paths (export/handoff) keep working.
   files?: Record<string, string>;
   entry?: string;
+  // Site / flow prototype (a multifile artifact from a ```vdsite block): page
+  // list + optional user-flow metadata from the optional site.json manifest.
+  site?: SiteManifest;
 }
 
 export interface Project {

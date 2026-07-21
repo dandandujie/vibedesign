@@ -2,8 +2,9 @@ import express from "express";
 import cors from "cors";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { getStreamFn, DEFAULT_BASE_URLS, ChatMessage, ProviderConfig } from "./providers/index.js";
-import { buildSystem, listSkills } from "./brain.js";
+import { DEFAULT_BASE_URLS, ChatMessage, ProviderConfig } from "./providers/index.js";
+import { listSkills } from "./brain.js";
+import { mountAgentApi, runCompletion } from "./agentApi.js";
 import {
   getProviders,
   getProvider,
@@ -19,7 +20,6 @@ import {
   saveProject,
   deleteProject,
   listDesignSystems,
-  getDesignSystem,
   saveDesignSystem,
   deleteDesignSystem,
   DesignSystem,
@@ -330,9 +330,36 @@ function renderError(res: express.Response, err: unknown): void {
 }
 
 app.post("/api/render-motion", async (req, res) => {
-  const { html, ...opts } = req.body as { html?: string } & MotionRenderOpts;
+  const { html, stream, ...opts } = req.body as { html?: string; stream?: boolean } & MotionRenderOpts;
   if (!html || typeof html !== "string") return res.status(400).json({ error: "html required" });
   if (Buffer.byteLength(html, "utf8") > MAX_RENDER_HTML_BYTES) return res.status(413).json({ error: "html too large" });
+
+  // SSE progress mode: same event-stream pattern as /api/chat — heartbeat,
+  // per-frame progress events, then one result (base64) or error, then done.
+  if (stream === true) {
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders?.();
+    const send = (obj: unknown) => {
+      if (!res.destroyed && !res.writableEnded) res.write(`data: ${JSON.stringify(obj)}\n\n`);
+    };
+    const heartbeat = setInterval(() => send({ type: "heartbeat" }), 10_000);
+    try {
+      const { buffer, ext } = await runBoundedRender(res, 120_000, (signal) =>
+        renderMotionVideo(html, { ...opts, onProgress: (frame, total) => send({ type: "progress", frame, total }) }, signal),
+      );
+      send({ type: "result", data: buffer.toString("base64"), format: ext });
+    } catch (err) {
+      send({ type: "error", error: err instanceof Error ? err.message : String(err) });
+    } finally {
+      clearInterval(heartbeat);
+      send({ type: "done" });
+      res.end();
+    }
+    return;
+  }
+
   try {
     const { buffer, mime, ext } = await runBoundedRender(res, 120_000, (signal) => renderMotionVideo(html, opts, signal));
     if (res.destroyed || res.writableEnded) return;
@@ -447,26 +474,28 @@ app.post("/api/chat", async (req, res) => {
     // the response headers are already flushed, so an escaped throw would crash
     // the whole Express process (in the desktop build, that is the Electron main
     // process) instead of failing this one request.
-    const ds = designSystemId ? getDesignSystem(designSystemId, lang) : undefined;
-    let system = buildSystem(skillId, ds);
-    if (extraInstruction) system += `\n\n---\n\n# Active mode\n\n${extraInstruction}`;
-    const streamFn = getStreamFn(provider.format);
     send({ type: "status", phase: "requesting" });
     let generating = false;
     let failed = false;
-    for await (const evt of streamFn({ system, messages, config: provider, signal: ac.signal })) {
-      if (evt.type === "done") break; // finally 统一发 done，避免重复
-      if (evt.type === "text" && !generating) {
-        generating = true;
-        send({ type: "status", phase: "generating" });
-      }
-      send(evt);
-      if (evt.type === "error") {
-        failed = true;
-        break;
-      }
-    }
-    if (!failed && !ac.signal.aborted) send({ type: "status", phase: "finalizing" });
+    const { error } = await runCompletion({
+      messages,
+      provider,
+      skillId,
+      designSystemId,
+      extraInstruction,
+      lang,
+      signal: ac.signal,
+      onEvent: (evt) => {
+        if (evt.type === "text" && !generating) {
+          generating = true;
+          send({ type: "status", phase: "generating" });
+        }
+        if (evt.type === "error") failed = true;
+        send(evt);
+      },
+    });
+    if (error && !failed) send({ type: "error", error });
+    if (!failed && !error && !ac.signal.aborted) send({ type: "status", phase: "finalizing" });
   } catch (err: unknown) {
     if (!ac.signal.aborted) {
       send({ type: "error", error: err instanceof Error ? err.message : String(err) });
@@ -476,6 +505,15 @@ app.post("/api/chat", async (req, res) => {
     send({ type: "done" });
     res.end();
   }
+});
+
+// ---- Agent API (local coding agents → headless generation) ------------------
+
+mountAgentApi(app, {
+  resolveProvider: (providerId?: string) => {
+    const pid = providerId || getActiveProviderId();
+    return pid ? getProvider(pid) : undefined;
+  },
 });
 
 app.listen(PORT, "127.0.0.1", () => {
