@@ -3162,6 +3162,7 @@ code,
 }
 .pulse-new {
   color: var(--accent-active);
+  border-color: var(--accent-active) !important;
   animation: pulse-glow 1.6s ease-in-out infinite;
 }
 @keyframes pulse-glow {
@@ -3172,6 +3173,36 @@ code,
   50% {
     background: var(--accent-bg);
   }
+}
+/* blurred backdrop for the auto update modal */
+.modal-backdrop.blur {
+  backdrop-filter: blur(8px) saturate(0.9);
+  -webkit-backdrop-filter: blur(8px) saturate(0.9);
+  background: rgba(250, 249, 247, 0.45);
+}
+.update-modal {
+  width: 480px;
+  max-width: 92vw;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.update-modal-body {
+  padding: 14px 20px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 46vh;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  font-size: 14px;
+  line-height: 1.65;
+}
+.update-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px 16px;
 }
 .changelog-pop {
   position: absolute;

@@ -305,6 +305,8 @@ const EN: Record<string, string> = {
   "多页站点请在编辑模式里使用 Tweaks 页签": "On multi-page sites, use the Tweaks tab inside Edit mode",
   "正在编辑的页面": "Page being edited",
   "会话与历史": "Sessions & history",
+  "稍后再说": "Later",
+  "发布于": "Released",
   "历史会话": "Past sessions",
   "本会话消息": "Current session messages",
   "已开启新会话（保留画布，清空对话）": "New session started — canvas kept, chat cleared",

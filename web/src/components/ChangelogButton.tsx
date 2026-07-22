@@ -49,9 +49,11 @@ function newer(a: string, b: string): boolean {
 
 // 更新日志 button (user req #12): pulses when GitHub has a newer release;
 // card lists release notes; the update button auto-installs (Electron) or
-// opens the release page (web).
+// opens the release page (web). A newer release also auto-opens a centered,
+// blurred-backdrop modal once per version (dismissible).
 export function ChangelogButton() {
   const [open, setOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
   const [releases, setReleases] = useState<Release[]>([]);
   const [current, setCurrent] = useState("0.0.0");
   const [hasNew, setHasNew] = useState(false);
@@ -67,7 +69,12 @@ export function ChangelogButton() {
           r.ok ? r.json() : [],
         );
         setReleases(rs);
-        setHasNew(!!rs[0] && newer(rs[0].tag_name, v));
+        const isNew = !!rs[0] && newer(rs[0].tag_name, v);
+        setHasNew(isNew);
+        // Auto-popup once per version: dismissed versions stay quiet.
+        if (isNew && rs[0] && localStorage.getItem("vd_update_dismissed") !== rs[0].tag_name) {
+          setModalOpen(true);
+        }
       } catch {
         /* offline is fine */
       }
@@ -93,11 +100,41 @@ export function ChangelogButton() {
     }
   };
 
+  const dismissModal = () => {
+    if (releases[0]) localStorage.setItem("vd_update_dismissed", releases[0].tag_name);
+    setModalOpen(false);
+  };
+
   return (
     <div className="changelog-wrap" ref={ref}>
       <button className={`btn ghost small ${hasNew ? "pulse-new" : ""}`} onClick={() => setOpen((v) => !v)}>
         {t("更新日志")}{hasNew ? " ●" : ""}
       </button>
+      {modalOpen && releases[0] && (
+        <div className="modal-backdrop blur" onClick={dismissModal}>
+          <div className="modal update-modal" onClick={(e) => e.stopPropagation()}>
+            <header>
+              <h2>
+                {t("新版本")} {releases[0].tag_name} {t("可用")}
+              </h2>
+            </header>
+            <div className="update-modal-body">
+              <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+                {t("当前")} v{current} · {t("发布于")} {releases[0].published_at?.slice(0, 10)}
+              </p>
+              <div className="cl-body">{cleanNotes(releases[0].body || releases[0].name || "")}</div>
+            </div>
+            <div className="update-modal-actions">
+              <button className="btn ghost small" onClick={dismissModal}>
+                {t("稍后再说")}
+              </button>
+              <button className="btn primary" disabled={!!updating} onClick={update}>
+                {updating ?? (window.vd ? t("自动更新并重启") : t("去下载"))}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {open && (
         <div className="changelog-pop" ref={clampPop}>
           <div className="cl-head">
