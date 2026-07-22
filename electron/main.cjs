@@ -1,6 +1,13 @@
 const { app, BrowserWindow, shell, ipcMain } = require("electron");
 const path = require("path");
 
+// MCP stdio mode: coding agents spawn the app binary with `--vd-mcp` (see
+// server/src/agentInstall.ts resolveLaunch). Run the bundled MCP server and
+// skip the GUI entirely — this is what makes "one-click agent connect" work
+// from the packaged app (the bundle inside asar is requireable from here).
+if (process.argv.includes("--vd-mcp")) {
+  require(path.join(__dirname, "..", "server", "dist", "mcp.cjs"));
+} else {
 // Writable data lives in userData (the packaged app dir is read-only).
 process.env.VD_DATA_DIR = path.join(app.getPath("userData"), "data");
 // Avoid clashing with a dev server on 8787.
@@ -91,3 +98,4 @@ ipcMain.on("vd:install-update", async (event) => {
     send(`更新失败：${String(err).slice(0, 80)}`);
   }
 });
+}

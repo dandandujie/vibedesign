@@ -1470,6 +1470,79 @@ code,
   padding: 3px 10px;
   white-space: nowrap;
 }
+/* ---- Agent integrations panel (Settings → Agent 打通) ---- */
+.agent-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.agent-warn {
+  margin: 0;
+  font-size: 13px;
+  color: var(--accent, #c1543a);
+}
+.agent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.agent-row {
+  border: 1px solid var(--border, #e6e4de);
+  border-radius: 10px;
+  padding: 9px 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface, #fff);
+}
+.agent-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  flex: 1 1 auto;
+}
+.agent-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary, #191915);
+}
+.agent-badge {
+  font-size: 10px;
+  font-weight: 650;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--bg-hover, #f0ede8);
+  color: var(--text-secondary, #6b6b6b);
+  border: 1px solid var(--border, #e6e4de);
+}
+.agent-badge.ok {
+  color: #2f7d4f;
+  border-color: #2f7d4f55;
+  background: #2f7d4f14;
+}
+.agent-status {
+  font-size: 12px;
+  color: var(--text-secondary, #6b6b6b);
+  white-space: nowrap;
+}
+.agent-msg {
+  flex: 1 1 100%;
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text-secondary, #6b6b6b);
+  border-top: 1px dashed var(--border, #e6e4de);
+  padding-top: 6px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.agent-msg.err {
+  color: #b3261e;
+}
+.agent-note {
+  flex: 1 1 100%;
+}
 .menu-cap {
   display: block;
   padding: 6px 10px 2px;

@@ -8,6 +8,7 @@ import {
   deleteProvider,
   setActiveProvider,
 } from "../lib/api";
+import { AgentPanel } from "./AgentPanel";
 
 interface Props {
   meta: Meta;
@@ -35,6 +36,7 @@ function blank(defaults: Record<ProviderFormat, string>): ProviderConfig {
 
 export function SettingsModal({ meta, onClose, onChanged }: Props) {
   const [editing, setEditing] = useState<ProviderConfig | null>(null);
+  const [tab, setTab] = useState<"providers" | "agents">("providers");
 
   const startAdd = () => setEditing(blank(meta.defaultBaseUrls));
   const startEdit = (p: ProviderConfig) => setEditing({ ...p });
@@ -71,11 +73,23 @@ export function SettingsModal({ meta, onClose, onChanged }: Props) {
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <header>
-          <h2>{t("模型服务")}</h2>
+          <h2>{t("设置")}</h2>
           <button className="btn ghost small" onClick={onClose}>
             ✕
           </button>
         </header>
+        <div className="edit-tabs" style={{ padding: "0 20px" }}>
+          {([["providers", "模型服务"], ["agents", "Agent 打通"]] as const).map(([tb, label]) => (
+            <button key={tb} className={`edit-tab ${tab === tb ? "on" : ""}`} onClick={() => setTab(tb)}>
+              {t(label)}
+            </button>
+          ))}
+        </div>
+        {tab === "agents" ? (
+          <div className="content">
+            <AgentPanel />
+          </div>
+        ) : (
         <div className="content">
           <p className="small muted" style={{ margin: 0 }}>
             {t("支持 Anthropic / OpenAI（含 Responses）/ Gemini 格式，可添加任意兼容服务（自建、代理、第三方）。 API Key 只保存在本地服务端，不会写进浏览器。")}
@@ -194,6 +208,7 @@ export function SettingsModal({ meta, onClose, onChanged }: Props) {
             </button>
           )}
         </div>
+        )}
       </div>
     </div>
   );

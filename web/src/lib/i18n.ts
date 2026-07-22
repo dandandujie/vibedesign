@@ -307,6 +307,15 @@ const EN: Record<string, string> = {
   "会话与历史": "Sessions & history",
   "稍后再说": "Later",
   "发布于": "Released",
+  "设置": "Settings",
+  "读取 agent 状态中…": "Loading agent status…",
+  "勾选即可把 Vibedesign 接入对应的 coding agent（写入 MCP 配置 + /design 技能）。接入后在 agent 里说 /design 或让它「设计一个页面」，即可驱动 Vibedesign 生成并回传设计。":
+    "Check an agent to connect Vibedesign to it (writes MCP config + the /design skill). Then say /design or ask it to design a page — the agent drives Vibedesign and pulls the design back.",
+  "处理中…": "Working…",
+  "已打通": "Connected",
+  "未打通": "Not connected",
+  "提示：安装后需重启对应 agent CLI 生效；Vibedesign 需保持运行（桌面版或 npm run dev）。":
+    "Note: restart the agent CLI after installing; Vibedesign must stay running (desktop app or npm run dev).",
   "历史会话": "Past sessions",
   "本会话消息": "Current session messages",
   "已开启新会话（保留画布，清空对话）": "New session started — canvas kept, chat cleared",

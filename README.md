@@ -71,8 +71,10 @@ npm run dist:win           # 打 Windows 安装包（nsis/zip）→ release/
 
 ```bash
 npm run build              # 产出 server/dist/mcp.cjs（MCP server）
-npm run install:agents     # 一键安装到 claude / codex / cursor / pi（可带参数单个安装）
+npm run install:agents     # 一键安装到全部 agent（可带 slug 单个安装，如 npm run install:agents -- kimi）
 ```
+
+也可以在应用内 **设置 → Agent 打通** 页签里可视化勾选：实时显示各 agent 的 CLI 探测 / MCP 配置 / /design 技能状态，勾选即写入配置、取消勾选即移除（桌面版用应用自身二进制作为 MCP 进程，无需 repo 路径）。
 
 | Agent | 接入方式 |
 |---|---|

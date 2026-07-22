@@ -14,16 +14,8 @@ import {
   deleteProvider,
   setActiveProvider,
 } from "./config.js";
-import {
-  listProjects,
-  getProject,
-  saveProject,
-  deleteProject,
-  listDesignSystems,
-  saveDesignSystem,
-  deleteDesignSystem,
-  DesignSystem,
-} from "./storage.js";
+import { listProjects, getProject, saveProject, deleteProject, listDesignSystems, saveDesignSystem, deleteDesignSystem, DesignSystem } from "./storage.js";
+import { resolveLaunch, listAgentStatus, installAgent, uninstallAgent } from "./agentInstall.js";
 import {
   listLiveArtifacts,
   getLiveArtifact,
@@ -514,6 +506,21 @@ mountAgentApi(app, {
     const pid = providerId || getActiveProviderId();
     return pid ? getProvider(pid) : undefined;
   },
+});
+
+// ---- Agent integrations (Settings panel: one-click MCP/skill install) --------
+
+app.get("/api/agent-integrations", (_req, res) => {
+  const launch = resolveLaunch();
+  res.json({ launch: launch.spec ?? null, launchError: launch.error ?? null, agents: listAgentStatus() });
+});
+
+app.post("/api/agent-integrations/:slug", (req, res) => {
+  const action = req.body?.action;
+  const result =
+    action === "install" ? installAgent(req.params.slug) : action === "uninstall" ? uninstallAgent(req.params.slug) : null;
+  if (!result) return res.status(400).json({ error: "action must be install|uninstall" });
+  res.status(result.ok ? 200 : 400).json(result);
 });
 
 app.listen(PORT, "127.0.0.1", () => {
