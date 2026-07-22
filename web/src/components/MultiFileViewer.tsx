@@ -78,6 +78,13 @@ export function MultiFileViewer({ projectId, version, onEditSite, device = "web"
     setPageMenu(false);
   }, [version.id, entry]);
 
+  // The controlled page may point at a file that no longer exists (version
+  // switch / page delete / restore) — fall back to the entry instead of
+  // probing a 404 forever.
+  useEffect(() => {
+    if (page !== entry && !files[page]) setPage(entry);
+  }, [page, entry, files]);
+
   useEffect(() => {
     let cancelled = false;
     let tries = 0;

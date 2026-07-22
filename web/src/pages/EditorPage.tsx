@@ -213,6 +213,20 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
   const editingMultifile = tool === "edit" && isMultifile && !!mfPageHtml;
   const canvasPageHtml = editingMultifile ? editDraft ?? mfPageHtml : canvasHtml;
   useEffect(() => setMfPage(null), [activeVersionId]);
+
+  // Relative urls (./styles.css) inside a multi-file page only resolve when the
+  // page is served over /api/mf. Anywhere we render a page via srcdoc / blob /
+  // print window instead (edit canvas, Present, PDF export), inject a <base>
+  // pointing at that page's /api/mf directory. The tag is marked so it can be
+  // stripped back out before the page is saved into files.
+  const mfBaseUrl = isMultifile && activeVersion ? `/api/mf/${projectId}/${activeVersion.id}/` : null;
+  const withBase = (html: string): string => {
+    if (!mfBaseUrl) return html;
+    const tag = `<base href="${mfBaseUrl}" data-vd-base="">`;
+    return /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, (m) => m + tag) : tag + html;
+  };
+  const stripBase = (html: string): string => html.replace(/<base[^>]*data-vd-base[^>]*>\s*/i, "");
+  const canvasEditHtml = editingMultifile && canvasPageHtml ? withBase(canvasPageHtml) : canvasPageHtml;
   const awaitingArtifact = streaming && !canvasHtml;
   const activeIdx = artifacts.findIndex((a) => a.id === activeVersionId);
   const fileName = activeVersion ? `${(proj?.name || "Design").slice(0, 14)} · v${activeIdx + 1}` : t("No file open");
@@ -459,7 +473,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
     let content = text;
     const continuingFromCanvas = messages.length === 0 && !!canvasHtml;
     if ((dirty || continuingFromCanvas) && canvasHtml) {
-      const html = (await canvasRef.current?.serialize()) || canvasHtml;
+      const html = stripBase((await canvasRef.current?.serialize()) || canvasHtml);
       const note = continuingFromCanvas
         ? "这是上一会话留下的当前设计。请把它作为本次新会话的起点，只依据本会话的指令继续修改并重新输出完整文档"
         : "这是我在画布上手动微调后的当前设计，请在此基础上修改并重新输出完整文档";
@@ -549,10 +563,11 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
   };
   const saveVersion = async () => {
     if (!canvasRef.current || !proj) return;
-    const html = await canvasRef.current.serialize();
+    const rawHtml = await canvasRef.current.serialize();
     // Multi-file (site) edit: write the serialized page back into files and
     // store a manual version carrying the whole file set.
     if (editingMultifile && activeVersion?.files && mfActivePage) {
+      const html = stripBase(rawHtml);
       const last = artifacts[artifacts.length - 1];
       if (last?.files?.[mfActivePage] === html) {
         setEditDraft(null);
@@ -585,6 +600,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
       return;
     }
     const last = artifacts[artifacts.length - 1];
+    const html = stripBase(rawHtml);
     if (last && last.html === html) {
       setEditDraft(null);
       setDirty(false);
@@ -849,7 +865,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
 
   const openInNewTab = () => {
     if (!canvasHtml) return;
-    const blob = new Blob([stripWorkingAttrs(canvasHtml)], { type: "text/html" });
+    const blob = new Blob([stripWorkingAttrs(isMultifile ? withBase(canvasHtml) : canvasHtml)], { type: "text/html" });
     window.open(URL.createObjectURL(blob), "_blank");
   };
 
@@ -1135,8 +1151,8 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
             <button
               className={`tool-toggle ${paletteOpen ? "on" : ""}`}
               onClick={() => setPaletteOpen((v) => !v)}
-              disabled={!canvasHtml || streaming}
-              title={t("一键换配色（色相平移）")}
+              disabled={!canvasHtml || streaming || isMultifile}
+              title={isMultifile ? t("多页站点暂不支持换肤") : t("一键换配色（色相平移）")}
             >
               ◐ {t("换肤")}
             </button>
@@ -1194,7 +1210,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
             )}
           </div>
           <SharePopover
-            artifactHtml={activeVersion ? stripWorkingAttrs(activeVersion.html) : null}
+            artifactHtml={activeVersion ? stripWorkingAttrs(isMultifile ? withBase(activeVersion.html) : activeVersion.html) : null}
             projectName={proj.name}
             version={activeVersion}
             exportPng={(sel, scale) => canvasRef.current?.exportPng(sel, scale) ?? Promise.resolve(null)}
@@ -1208,7 +1224,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
           {skillInputForm && activeSkill?.inputs && !streaming ? (
             <QuestionFormView form={activeSkill.inputs} onSubmit={submitSkillInputs} />
           ) : activeVersion?.kind === "multifile" && !streaming && tool !== "edit" ? (
-            <MultiFileViewer projectId={projectId} version={activeVersion} onEditSite={editSitePages} device={device} shell={shell} page={mfPage} onPageChange={setMfPage} />
+            <MultiFileViewer key={reloadNonce} projectId={projectId} version={activeVersion} onEditSite={editSitePages} device={device} shell={shell} page={mfPage} onPageChange={setMfPage} />
           ) : liveArt && !streaming ? (
             <LiveArtifactViewer live={liveArt} providerId={meta?.activeProviderId} onChanged={setLiveArt} />
           ) : pendingForm ? (
@@ -1219,7 +1235,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
                 <Canvas
                   key={`${reloadNonce}:${editingMultifile ? mfActivePage : ""}`}
                   ref={canvasRef}
-                  html={canvasPageHtml}
+                  html={canvasEditHtml}
                   refineMode={refineActive}
                   textEdit={tool === "edit" && editTool === "select" && !streaming}
                   dimmed={tool === "annotate" && !selected}
@@ -1344,7 +1360,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
 
       {presenting && canvasHtml && (
         <PresentOverlay
-          html={stripWorkingAttrs(canvasHtml)}
+          html={stripWorkingAttrs(isMultifile ? withBase(canvasHtml) : canvasHtml)}
           title={proj.name}
           fullscreen={presenting === "fullscreen"}
           onExit={() => setPresenting(null)}
