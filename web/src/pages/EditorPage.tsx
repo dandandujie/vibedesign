@@ -14,7 +14,7 @@ import { TweaksPanel, TweaksAsk } from "../components/TweaksPanel";
 import { QuestionFormView } from "../components/QuestionFormView";
 import { openPresenter, looksLikeDeck } from "../lib/presenter";
 import { MultiFileViewer } from "../components/MultiFileViewer";
-import { PhoneFrame, PhoneShell, SHELL_OPTIONS } from "../components/PhoneFrame";
+import { PhoneFrame, PhoneShell, SHELL_OPTIONS, normalizeShell } from "../components/PhoneFrame";
 import { CommentsPanel } from "../components/CommentsPanel";
 import { AnnotateDrawOverlay, Mark, ANNOTATE_ACCENT } from "../components/AnnotateDrawOverlay";
 import { EditPanel } from "../components/EditPanel";
@@ -75,10 +75,35 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
   const [pinRects, setPinRects] = useState<RectMap>({}); // live positions of comment pins
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [vmOpen, setVmOpen] = useState(false);
+  const [sessionChain, setSessionChain] = useState<Project[]>([]);
+
+  // Session menu: load the ancestor session chain (parentProjectId …) when opened,
+  // so "new session" and "chat history" live in one mental model — sessions you
+  // can go back to, plus the current conversation's messages.
+  useEffect(() => {
+    if (!historyOpen || !proj) return;
+    let cancelled = false;
+    (async () => {
+      const chain: Project[] = [];
+      let cur: Project = proj;
+      const seen = new Set<string>();
+      while (cur.parentProjectId && !seen.has(cur.parentProjectId)) {
+        seen.add(cur.parentProjectId);
+        const p = await getProject(cur.parentProjectId);
+        if (!p) break;
+        chain.push(p);
+        cur = p;
+      }
+      if (!cancelled) setSessionChain(chain);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [historyOpen, proj]);
   const [drawAnnotate, setDrawAnnotate] = useState(false); // visual-annotation draw mode
   const [liveArt, setLiveArt] = useState<LiveArtifact | null>(null); // active Live artifact
   const [device, setDevice] = useState<"web" | "mobile" | "app">("web"); // prototype viewport
-  const [shell, setShell] = useState<PhoneShell>(() => (localStorage.getItem("vd_shell") as PhoneShell) || "dark");
+  const [shell, setShell] = useState<PhoneShell>(() => normalizeShell(localStorage.getItem("vd_shell")));
 
   const canvasRef = useRef<CanvasHandle>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -831,11 +856,38 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
             <PanelLeft size={15} />
           </button>
           <div style={{ position: "relative" }}>
-            <button className="iconbtn" title={t("聊天历史")} onClick={() => setHistoryOpen((v) => !v)}>
+            <button className="iconbtn" title={t("会话与历史")} onClick={() => setHistoryOpen((v) => !v)}>
               <HistoryIcon size={15} />
             </button>
             {historyOpen && (
               <div className="mini-menu wide" ref={clampPop}>
+                <button
+                  onClick={() => {
+                    setHistoryOpen(false);
+                    void openNewSession();
+                  }}
+                >
+                  <ExternalLink size={14} /> {t("开启新会话（保留画布，清空对话）")}
+                </button>
+                {sessionChain.length > 0 && (
+                  <>
+                    <div className="pm-sep" />
+                    <span className="muted small menu-cap">{t("历史会话")}</span>
+                    {sessionChain.map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => {
+                          setHistoryOpen(false);
+                          location.hash = `#/p/${p.id}`;
+                        }}
+                      >
+                        <HistoryIcon size={14} /> {p.name}
+                      </button>
+                    ))}
+                  </>
+                )}
+                <div className="pm-sep" />
+                <span className="muted small menu-cap">{t("本会话消息")}</span>
                 {messages.filter((m) => m.role === "user").length === 0 && (
                   <span className="muted small" style={{ padding: "6px 10px" }}>
                     {t("暂无历史")}

@@ -24,7 +24,7 @@ interface Props {
 //    links) is tracked back into the bar so the active page follows clicks.
 //  - an overview tab: live thumbnails of every page + flow chains.
 //  - page management: rename / reorder / delete / add (saved as manual versions).
-export function MultiFileViewer({ projectId, version, onEditSite, device = "web", shell = "dark" }: Props) {
+export function MultiFileViewer({ projectId, version, onEditSite, device = "web", shell = "iphone-dark" }: Props) {
   const files = version.files ?? {};
   const paths = Object.keys(files);
   const entry = version.entry && files[version.entry] ? version.entry : paths.find((p) => /\.html?$/i.test(p)) ?? paths[0] ?? "";
@@ -223,50 +223,74 @@ export function MultiFileViewer({ projectId, version, onEditSite, device = "web"
       <div className="mf-body">
         {tab === "overview" && isSite ? (
           <div className="mf-overview">
-            {flows.length > 0 && (
-              <div className="mf-flows">
-                {flows.map((f) => (
-                  <div key={f.name} className="mf-flow">
-                    <span className="mf-flow-name">{f.name}</span>
-                    {f.steps.map((s, i) => {
-                      const sp = sitePages.find((p) => p.path === s);
-                      return (
-                        <span key={`${s}-${i}`} className="mf-flow-steps">
-                          {i > 0 && <span className="mf-flow-arrow">→</span>}
-                          <button
-                            className="mf-flow-step"
-                            onClick={() => {
-                              if (sp) {
-                                setPage(sp.path);
-                                setTab("preview");
-                              }
-                            }}
-                          >
-                            {sp?.title ?? s}
-                          </button>
-                        </span>
-                      );
-                    })}
+            <div className="mf-overview-inner">
+              {flows.length > 0 && (
+                <section className="mf-ov-sec">
+                  <h3 className="mf-ov-h">{t("用户流程")}</h3>
+                  <div className="mf-flows">
+                    {flows.map((f) => (
+                      <div key={f.name} className="mf-flow">
+                        <span className="mf-flow-name">{f.name}</span>
+                        <div className="mf-flow-track">
+                          {f.steps.map((s, i) => {
+                            const sp = sitePages.find((p) => p.path === s);
+                            return (
+                              <span key={`${s}-${i}`} className="mf-flow-steps">
+                                {i > 0 && (
+                                  <span className="mf-flow-link" aria-hidden>
+                                    <span className="line" />
+                                    <span className="arrow">›</span>
+                                  </span>
+                                )}
+                                <button
+                                  className="mf-flow-node"
+                                  onClick={() => {
+                                    if (sp) {
+                                      setPage(sp.path);
+                                      setTab("preview");
+                                    }
+                                  }}
+                                >
+                                  <span className="n">{i + 1}</span>
+                                  {sp?.title ?? s}
+                                </button>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
-            <div className="mf-grid">
-              {sitePages.map((p) => (
-                <button
-                  key={p.path}
-                  className="mf-thumb"
-                  onClick={() => {
-                    setPage(p.path);
-                    setTab("preview");
-                  }}
-                >
-                  <span className="mf-thumb-frame">
-                    <iframe src={base + p.path} sandbox="allow-scripts allow-same-origin" tabIndex={-1} title={p.title} />
-                  </span>
-                  <span className="mf-thumb-title">{p.title}</span>
-                </button>
-              ))}
+                </section>
+              )}
+              <section className="mf-ov-sec">
+                <h3 className="mf-ov-h">
+                  {t("全部页面")} <span className="mf-ov-count">{sitePages.length}</span>
+                </h3>
+                <div className="mf-grid">
+                  {sitePages.map((p, i) => (
+                    <button
+                      key={p.path}
+                      className="mf-thumb"
+                      onClick={() => {
+                        setPage(p.path);
+                        setTab("preview");
+                      }}
+                    >
+                      <span className="mf-thumb-frame">
+                        <iframe src={base + p.path} sandbox="allow-scripts allow-same-origin" tabIndex={-1} title={p.title} />
+                      </span>
+                      <span className="mf-thumb-meta">
+                        <span className="mf-thumb-title">
+                          <span className="mf-thumb-n">{i + 1}</span>
+                          {p.title}
+                        </span>
+                        <span className="mf-thumb-path">{p.path}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </section>
             </div>
           </div>
         ) : tab === "preview" ? (

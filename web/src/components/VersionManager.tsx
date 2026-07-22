@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { t } from "../lib/i18n";
 import { ArtifactVersion } from "../lib/types";
 import { exportVersion } from "../lib/exporters";
@@ -15,14 +15,31 @@ interface Props {
 }
 
 const SRC_ICON: Record<string, string> = { ai: "🤖", manual: "✎", restore: "↩" };
+const SRC_LABEL: Record<string, string> = { ai: "AI", manual: "手动", restore: "恢复" };
 const KIND_LABEL: Record<string, string> = { html: "HTML", markdown: "Doc", multifile: "多文件" };
 
+// Logical width the preview renders at, then CSS-scaled to fit the pane.
+const PREVIEW_W = 1100;
+
 // Version manager (inspired by open-design's FileVersionManagerModal):
-// searchable version list + live preview + per-version open / restore / export.
+// searchable version list + scaled live preview + open / restore / export.
 export function VersionManager({ projectId, projectName, artifacts, activeVersionId, onClose, onActivate, onRestore }: Props) {
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | undefined>(activeVersionId ?? artifacts[artifacts.length - 1]?.id);
   const [confirming, setConfirming] = useState<string | null>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(0.5);
+
+  // Fit the fixed-width preview into whatever space the pane has.
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+    const update = () => setScale(Math.min(1, el.clientWidth / PREVIEW_W));
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -37,6 +54,7 @@ export function VersionManager({ projectId, projectName, artifacts, activeVersio
   }, [artifacts, query]);
 
   const selected = artifacts.find((v) => v.id === selectedId) ?? null;
+  const selectedIdx = selected ? artifacts.findIndex((a) => a.id === selected.id) : -1;
   const previewSrc =
     selected?.kind === "multifile" && selected.entry ? `/api/mf/${projectId}/${selected.id}/${selected.entry}` : null;
 
@@ -45,6 +63,7 @@ export function VersionManager({ projectId, projectName, artifacts, activeVersio
       <div className="modal vm-modal" onClick={(e) => e.stopPropagation()}>
         <header>
           <h2>{t("版本管理")}</h2>
+          <span className="vm-count muted">{artifacts.length} {t("个版本")}</span>
           <button className="iconbtn" onClick={onClose}>
             <XIcon size={13} />
           </button>
@@ -55,17 +74,17 @@ export function VersionManager({ projectId, projectName, artifacts, activeVersio
             {list.map((v) => {
               const idx = artifacts.findIndex((a) => a.id === v.id);
               return (
-                <button key={v.id} className={`vm-row ${v.id === selectedId ? "on" : ""}`} onClick={() => setSelectedId(v.id)}>
-                  <span className="vm-src">{SRC_ICON[v.source ?? "ai"]}</span>
-                  <span className="vm-main">
-                    <span className="vm-title">
-                      v{idx + 1} · {v.label || t("未命名")}
-                      {v.id === activeVersionId && <span className="vm-active">{t("当前")}</span>}
-                    </span>
-                    <span className="vm-sub">
-                      {KIND_LABEL[v.kind ?? "html"]} · {new Date(v.createdAt).toLocaleString()}
-                      {v.prompt ? ` · ${v.prompt}` : ""}
-                    </span>
+                <button key={v.id} className={`vm-row ${v.id === selectedId ? "on" : ""}`} onClick={() => { setSelectedId(v.id); setConfirming(null); }}>
+                  <span className="vm-row-top">
+                    <span className="vm-v">v{idx + 1}</span>
+                    <span className="vm-chip">{SRC_ICON[v.source ?? "ai"]} {SRC_LABEL[v.source ?? "ai"]}</span>
+                    <span className="vm-chip ghost">{KIND_LABEL[v.kind ?? "html"]}</span>
+                    {v.id === activeVersionId && <span className="vm-active">{t("当前")}</span>}
+                  </span>
+                  <span className="vm-title">{v.label || t("未命名")}</span>
+                  <span className="vm-sub">
+                    {new Date(v.createdAt).toLocaleString()}
+                    {v.prompt ? ` · ${v.prompt}` : ""}
                   </span>
                 </button>
               );
@@ -75,11 +94,21 @@ export function VersionManager({ projectId, projectName, artifacts, activeVersio
           <div className="vm-preview">
             {selected ? (
               <>
-                {previewSrc ? (
-                  <iframe className="vm-frame" src={previewSrc} sandbox="allow-scripts allow-same-origin" title="version preview" />
-                ) : (
-                  <iframe className="vm-frame" srcDoc={selected.html} sandbox="allow-scripts" title="version preview" />
-                )}
+                <div className="vm-preview-head">
+                  <span className="vm-preview-title">
+                    v{selectedIdx + 1} · {selected.label || t("未命名")}
+                  </span>
+                  <span className="muted" style={{ fontSize: 12 }}>{new Date(selected.createdAt).toLocaleString()}</span>
+                </div>
+                <div className="vm-preview-stage" ref={stageRef}>
+                  <div className="vm-preview-scale" style={{ transform: `scale(${scale})`, width: PREVIEW_W }}>
+                    {previewSrc ? (
+                      <iframe className="vm-frame" src={previewSrc} sandbox="allow-scripts allow-same-origin" title="version preview" />
+                    ) : (
+                      <iframe className="vm-frame" srcDoc={selected.html} sandbox="allow-scripts" title="version preview" />
+                    )}
+                  </div>
+                </div>
                 <div className="vm-actions">
                   <button
                     className="btn black small"
@@ -112,8 +141,9 @@ export function VersionManager({ projectId, projectName, artifacts, activeVersio
                       {t("恢复为此版本")}
                     </button>
                   )}
+                  <div style={{ flex: 1 }} />
                   <button className="btn ghost small" onClick={() => void exportVersion(selected, projectName)}>
-                    {t("导出")}
+                    ↓ {t("导出")}
                   </button>
                 </div>
               </>
