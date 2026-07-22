@@ -1,4 +1,4 @@
-import { StreamFn, readSSE, dataLines, trimTrailingSlash, parseDataUrl } from "./types.js";
+import { StreamFn, readSSE, dataLines, trimTrailingSlash, parseDataUrl, safeResponseText } from "./types.js";
 
 // Anthropic Messages API (native format).
 // POST {baseUrl}/v1/messages  — SSE with content_block_delta events.
@@ -42,7 +42,7 @@ export const streamAnthropic: StreamFn = async function* (req) {
   });
 
   if (!res.ok) {
-    yield { type: "error", error: `Anthropic ${res.status}: ${await safeText(res)}` };
+    yield { type: "error", error: `Anthropic ${res.status}: ${await safeResponseText(res)}` };
     return;
   }
 
@@ -63,11 +63,3 @@ export const streamAnthropic: StreamFn = async function* (req) {
   }
   yield { type: "done" };
 };
-
-async function safeText(res: Response): Promise<string> {
-  try {
-    return (await res.text()).slice(0, 500);
-  } catch {
-    return "<no body>";
-  }
-}

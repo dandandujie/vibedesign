@@ -97,3 +97,11 @@ export function dataLines(block: string): string[] {
 export function trimTrailingSlash(url: string): string {
   return url.replace(/\/+$/, "");
 }
+
+export async function safeResponseText(res: Response): Promise<string> {
+  try {
+    return (await res.text()).slice(0, 500);
+  } catch {
+    return "<no body>";
+  }
+}

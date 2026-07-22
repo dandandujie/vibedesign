@@ -1,4 +1,4 @@
-import { StreamFn, readSSE, dataLines, trimTrailingSlash, parseDataUrl } from "./types.js";
+import { StreamFn, readSSE, dataLines, trimTrailingSlash, parseDataUrl, safeResponseText } from "./types.js";
 
 // Google Gemini API (generateContent, streamed).
 // POST {baseUrl}/models/{model}:streamGenerateContent?alt=sse&key=KEY
@@ -32,7 +32,7 @@ export const streamGemini: StreamFn = async function* (req) {
   });
 
   if (!res.ok) {
-    yield { type: "error", error: `Gemini ${res.status}: ${await safeText(res)}` };
+    yield { type: "error", error: `Gemini ${res.status}: ${await safeResponseText(res)}` };
     return;
   }
 
@@ -56,11 +56,3 @@ export const streamGemini: StreamFn = async function* (req) {
   }
   yield { type: "done" };
 };
-
-async function safeText(res: Response): Promise<string> {
-  try {
-    return (await res.text()).slice(0, 500);
-  } catch {
-    return "<no body>";
-  }
-}

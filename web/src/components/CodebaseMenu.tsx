@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { t } from "../lib/i18n";
 import { fetchGithubRepo } from "../lib/api";
 import { clampPop } from "../lib/popover";
+import { pickLocalCodebase } from "../lib/localCodebase";
 
 export interface CodebaseCtx {
   label: string;
@@ -33,42 +34,17 @@ export function CodebaseMenu({ current, onSet }: Props) {
   }, [open]);
 
   const attachLocal = async () => {
-    type DirPicker = { showDirectoryPicker?: () => Promise<FileSystemDirectoryHandle> };
-    const w = window as unknown as DirPicker;
-    if (!w.showDirectoryPicker) {
-      setErr("此环境不支持选择文件夹");
-      return;
-    }
     try {
-      const dir = await w.showDirectoryPicker();
-      const files: { path: string; content: string }[] = [];
-      let total = 0;
-      async function walk(handle: FileSystemDirectoryHandle, prefix: string, depth: number) {
-        if (depth > 3 || files.length >= 12 || total > 120_000) return;
-        for await (const [name, h] of handle as unknown as AsyncIterable<[string, FileSystemHandle]>) {
-          if (files.length >= 12 || total > 120_000) return;
-          if (name.startsWith(".") || name === "node_modules" || name === "dist") continue;
-          if (h.kind === "directory") await walk(h as FileSystemDirectoryHandle, `${prefix}${name}/`, depth + 1);
-          else if (/\.(css|scss)$|tokens?\.(json|js|ts)$|tailwind\.config\.|theme\.|package\.json$/i.test(name)) {
-            const file = await (h as FileSystemFileHandle).getFile();
-            if (file.size < 60_000) {
-              const content = (await file.text()).slice(0, 25_000);
-              total += content.length;
-              files.push({ path: prefix + name, content });
-            }
-          }
-        }
-      }
-      await walk(dir, "", 0);
-      if (!files.length) {
-        setErr("未找到样式/tokens 相关文件");
+      const result = await pickLocalCodebase();
+      if (!result.ok) {
+        setErr(result.error);
         return;
       }
       onSet({
-        label: `代码库：${dir.name}`,
+        label: `代码库：${result.name}`,
         text:
-          `\n\n（以下是本地代码库「${dir.name}」中与设计相关的文件，设计必须基于其中的真实 tokens/样式）\n` +
-          files.map((f) => `--- ${f.path} ---\n${f.content}`).join("\n"),
+          `\n\n（以下是本地代码库「${result.name}」中与设计相关的文件，设计必须基于其中的真实 tokens/样式）\n` +
+          result.text,
       });
       setOpen(false);
     } catch {

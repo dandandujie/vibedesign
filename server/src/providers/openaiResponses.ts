@@ -1,4 +1,4 @@
-import { StreamFn, readSSE, dataLines, trimTrailingSlash } from "./types.js";
+import { StreamFn, readSSE, dataLines, trimTrailingSlash, safeResponseText } from "./types.js";
 
 // OpenAI Responses API (the newer format).
 // POST {baseUrl}/responses  — SSE with response.output_text.delta events.
@@ -31,7 +31,7 @@ export const streamOpenAIResponses: StreamFn = async function* (req) {
   });
 
   if (!res.ok) {
-    yield { type: "error", error: `OpenAI-Responses ${res.status}: ${await safeText(res)}` };
+    yield { type: "error", error: `OpenAI-Responses ${res.status}: ${await safeResponseText(res)}` };
     return;
   }
 
@@ -52,11 +52,3 @@ export const streamOpenAIResponses: StreamFn = async function* (req) {
   }
   yield { type: "done" };
 };
-
-async function safeText(res: Response): Promise<string> {
-  try {
-    return (await res.text()).slice(0, 500);
-  } catch {
-    return "<no body>";
-  }
-}

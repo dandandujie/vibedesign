@@ -1,4 +1,4 @@
-import { StreamFn, readSSE, dataLines, trimTrailingSlash } from "./types.js";
+import { StreamFn, readSSE, dataLines, trimTrailingSlash, safeResponseText } from "./types.js";
 
 // OpenAI-compatible Chat Completions API. Also covers most OpenAI-compatible
 // custom endpoints (LM Studio, vLLM, OpenRouter, DeepSeek, etc.).
@@ -35,7 +35,7 @@ export const streamOpenAI: StreamFn = async function* (req) {
   });
 
   if (!res.ok) {
-    yield { type: "error", error: `OpenAI ${res.status}: ${await safeText(res)}` };
+    yield { type: "error", error: `OpenAI ${res.status}: ${await safeResponseText(res)}` };
     return;
   }
 
@@ -53,11 +53,3 @@ export const streamOpenAI: StreamFn = async function* (req) {
   }
   yield { type: "done" };
 };
-
-async function safeText(res: Response): Promise<string> {
-  try {
-    return (await res.text()).slice(0, 500);
-  } catch {
-    return "<no body>";
-  }
-}
