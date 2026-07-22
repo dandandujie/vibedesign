@@ -1458,6 +1458,18 @@ code,
   background: var(--bg-surface, #fff);
   color: var(--text-primary, #191915);
 }
+/* current-page chip shown while editing a multi-file page */
+.mf-edit-chip {
+  font-size: 12px;
+  font-weight: 600;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--accent, #c1543a);
+  background: var(--surface, #fff);
+  border: 1px solid var(--accent, #c1543a);
+  border-radius: 999px;
+  padding: 3px 10px;
+  white-space: nowrap;
+}
 .menu-cap {
   display: block;
   padding: 6px 10px 2px;

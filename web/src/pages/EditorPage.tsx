@@ -200,12 +200,25 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
   const liveArtifact = streaming ? extractArtifact(lastAssistant) : null;
   const activeVersion = artifacts.find((a) => a.id === activeVersionId) ?? null;
   const canvasHtml = liveArtifact ?? editDraft ?? activeVersion?.html ?? null;
+
+  // ---- Multi-file (site) editing ------------------------------------------------
+  // The Edit tool works on ONE page at a time through the single-file Canvas
+  // pipeline (inspector bridge / EditPanel / undo / save). The current page is
+  // lifted here so MultiFileViewer and the edit canvas stay in sync; saving
+  // writes the serialized page back into version.files as a manual version.
+  const [mfPage, setMfPage] = useState<string | null>(null);
+  const isMultifile = activeVersion?.kind === "multifile";
+  const mfActivePage = isMultifile ? mfPage ?? activeVersion?.entry ?? null : null;
+  const mfPageHtml = isMultifile && mfActivePage ? (activeVersion?.files?.[mfActivePage] ?? null) : null;
+  const editingMultifile = tool === "edit" && isMultifile && !!mfPageHtml;
+  const canvasPageHtml = editingMultifile ? editDraft ?? mfPageHtml : canvasHtml;
+  useEffect(() => setMfPage(null), [activeVersionId]);
   const awaitingArtifact = streaming && !canvasHtml;
   const activeIdx = artifacts.findIndex((a) => a.id === activeVersionId);
   const fileName = activeVersion ? `${(proj?.name || "Design").slice(0, 14)} · v${activeIdx + 1}` : t("No file open");
 
   const pendingForm = !streaming && messages.length > 0 ? extractForm(lastAssistant) : null;
-  const tweakGroups = canvasHtml ? extractProps(canvasHtml) : null;
+  const tweakGroups = canvasPageHtml ? extractProps(canvasPageHtml) : null;
 
   useEffect(() => {
     if (!proj) return;
@@ -537,6 +550,40 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
   const saveVersion = async () => {
     if (!canvasRef.current || !proj) return;
     const html = await canvasRef.current.serialize();
+    // Multi-file (site) edit: write the serialized page back into files and
+    // store a manual version carrying the whole file set.
+    if (editingMultifile && activeVersion?.files && mfActivePage) {
+      const last = artifacts[artifacts.length - 1];
+      if (last?.files?.[mfActivePage] === html) {
+        setEditDraft(null);
+        setDirty(false);
+        setToast("与最新版本相同，未新建");
+        return;
+      }
+      const files = { ...activeVersion.files, [mfActivePage]: html };
+      const entry = activeVersion.entry && files[activeVersion.entry] ? activeVersion.entry : mfActivePage;
+      const v: ArtifactVersion = {
+        id: crypto.randomUUID(),
+        html: files[entry] ?? html,
+        label: `${activeVersion.label} · ${t("编辑")} ${mfActivePage}`,
+        createdAt: Date.now(),
+        kind: "multifile",
+        source: "manual",
+        files,
+        entry,
+        ...(activeVersion.site ? { site: activeVersion.site } : {}),
+      };
+      setProj((prev) => {
+        if (!prev) return prev;
+        const next = { ...prev, artifacts: [...prev.artifacts, v], activeVersionId: v.id };
+        void saveProject(next);
+        return next;
+      });
+      setEditDraft(null);
+      setDirty(false);
+      setToast("已存为新版本");
+      return;
+    }
     const last = artifacts[artifacts.length - 1];
     if (last && last.html === html) {
       setEditDraft(null);
@@ -918,7 +965,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
           <EditPanel
             selected={selected}
             tweakGroups={tweakGroups}
-            html={canvasHtml ?? ""}
+            html={canvasPageHtml ?? ""}
             editTool={editTool}
             onEditTool={changeEditTool}
             canUndo={undoStack.length > 0}
@@ -1063,15 +1110,16 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
           <button
             className={`tool-toggle ${tool === "annotate" ? "on" : ""}`}
             onClick={() => switchTool("annotate")}
-            disabled={!canvasHtml || streaming}
+            disabled={!canvasHtml || streaming || isMultifile}
+            title={isMultifile ? t("多页站点暂不支持批注") : undefined}
           >
             ◉ {t("Annotate")}
           </button>
           <button
             className={`tool-toggle ${tool === "tweaks" || tool === "edit" ? "on" : ""}`}
             onClick={() => switchTool("tweaks")}
-            disabled={!canvasHtml || streaming}
-            title={tweakGroups ? "调节控件" : "描述想调什么，生成控件"}
+            disabled={!canvasHtml || streaming || isMultifile}
+            title={isMultifile ? t("多页站点请在编辑模式里使用 Tweaks 页签") : tweakGroups ? "调节控件" : "描述想调什么，生成控件"}
           >
             ⊞ {t("Tweaks")}
           </button>
@@ -1082,6 +1130,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
           >
             ✎ {t("Edit")}
           </button>
+          {editingMultifile && <span className="mf-edit-chip" title={t("正在编辑的页面")}>✎ {mfActivePage}</span>}
           <div style={{ position: "relative" }}>
             <button
               className={`tool-toggle ${paletteOpen ? "on" : ""}`}
@@ -1158,8 +1207,8 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
         <div className={`canvas-stage device-${device}`}>
           {skillInputForm && activeSkill?.inputs && !streaming ? (
             <QuestionFormView form={activeSkill.inputs} onSubmit={submitSkillInputs} />
-          ) : activeVersion?.kind === "multifile" && !streaming ? (
-            <MultiFileViewer projectId={projectId} version={activeVersion} onEditSite={editSitePages} device={device} shell={shell} />
+          ) : activeVersion?.kind === "multifile" && !streaming && tool !== "edit" ? (
+            <MultiFileViewer projectId={projectId} version={activeVersion} onEditSite={editSitePages} device={device} shell={shell} page={mfPage} onPageChange={setMfPage} />
           ) : liveArt && !streaming ? (
             <LiveArtifactViewer live={liveArt} providerId={meta?.activeProviderId} onChanged={setLiveArt} />
           ) : pendingForm ? (
@@ -1168,9 +1217,9 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
             (() => {
               const canvas = (
                 <Canvas
-                  key={reloadNonce}
+                  key={`${reloadNonce}:${editingMultifile ? mfActivePage : ""}`}
                   ref={canvasRef}
-                  html={canvasHtml}
+                  html={canvasPageHtml}
                   refineMode={refineActive}
                   textEdit={tool === "edit" && editTool === "select" && !streaming}
                   dimmed={tool === "annotate" && !selected}

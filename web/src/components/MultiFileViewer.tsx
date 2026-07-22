@@ -12,6 +12,8 @@ interface Props {
   onEditSite?: (files: Record<string, string>, site: SiteManifest) => void;
   device?: "web" | "mobile" | "app"; // phone-shell preview mode
   shell?: PhoneShell;
+  page?: string | null; // controlled current page (defaults to entry)
+  onPageChange?: (path: string) => void;
 }
 
 // Renders a multi-file artifact: a Preview tab (the entry served over /api/mf so
@@ -24,7 +26,7 @@ interface Props {
 //    links) is tracked back into the bar so the active page follows clicks.
 //  - an overview tab: live thumbnails of every page + flow chains.
 //  - page management: rename / reorder / delete / add (saved as manual versions).
-export function MultiFileViewer({ projectId, version, onEditSite, device = "web", shell = "iphone-dark" }: Props) {
+export function MultiFileViewer({ projectId, version, onEditSite, device = "web", shell = "iphone-dark", page: pageProp, onPageChange }: Props) {
   const files = version.files ?? {};
   const paths = Object.keys(files);
   const entry = version.entry && files[version.entry] ? version.entry : paths.find((p) => /\.html?$/i.test(p)) ?? paths[0] ?? "";
@@ -58,7 +60,14 @@ export function MultiFileViewer({ projectId, version, onEditSite, device = "web"
                 : { gridTemplateColumns: "repeat(3, 1fr)", gridAutoRows: "calc((100% - 28px) / 3)" };
 
   const [tab, setTab] = useState<string>("preview");
-  const [page, setPage] = useState<string>(entry);
+  // Page is optionally controlled by the host (EditorPage lifts it so the Edit
+  // tool can open the same page in the single-file canvas pipeline).
+  const [pageLocal, setPageLocal] = useState<string>(entry);
+  const page = pageProp ?? pageLocal;
+  const setPage = (p: string) => {
+    setPageLocal(p);
+    onPageChange?.(p);
+  };
   const [ready, setReady] = useState(false);
   const [pageMenu, setPageMenu] = useState(false);
   const pageUrl = base + page;
