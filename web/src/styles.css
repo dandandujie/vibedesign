@@ -1320,7 +1320,7 @@ code,
   color: var(--text-primary, #191915);
 }
 
-/* ---- site overview board (openpencil-style canvas) & page ops ---- */
+/* ---- site overview: adaptive page-count grid & page ops ---- */
 .mf-page-ops {
   display: inline-flex;
   gap: 4px;
@@ -1332,78 +1332,69 @@ code,
 .mf-overview {
   height: 100%;
   overflow: auto;
+  position: relative;
   background: repeating-conic-gradient(var(--bg-surface, #f5f3ef) 0 25%, transparent 0 50%) 0 0 / 22px 22px,
     var(--bg-canvas, #eceae4);
 }
-.mf-board {
-  display: flex;
-  flex-direction: column;
-  gap: 36px;
-  padding: 30px 36px 64px;
-  width: max-content;
-  min-width: 100%;
+.mf-ov-grid {
+  height: 100%;
+  display: grid;
+  gap: 14px;
+  padding: 14px;
   box-sizing: border-box;
 }
-.mf-board-row {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.mf-board-label {
-  font-size: 12px;
-  font-weight: 650;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-secondary, #6b6b6b);
-}
-.mf-board-chain {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-.mf-board-item {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-.mf-board-link {
+.mf-ov-dir {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 5;
   display: inline-flex;
-  align-items: center;
-  width: 40px;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #e6e4de);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+.mf-ov-dir button {
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
   color: var(--text-secondary, #6b6b6b);
 }
-.mf-board-link .line {
-  flex: 1;
-  border-top: 1.5px dashed var(--border-strong, #c9c5bc);
+.mf-ov-dir button.on {
+  background: var(--text-primary, #191915);
+  color: var(--bg, #faf9f7);
 }
-.mf-board-link .arrow {
-  font-size: 16px;
-  line-height: 1;
-  margin-left: -2px;
-}
-.mf-board-card {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  cursor: pointer;
-}
-.mf-board-thumb {
-  display: block;
-  width: 605px;
-  height: 418px;
+.mf-cell {
+  position: relative;
   border-radius: 14px;
-  overflow: hidden;
   border: 1px solid var(--border, #e6e4de);
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.1);
-  background: #fff;
-  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  background: repeating-conic-gradient(var(--bg-surface, #f5f3ef) 0 25%, transparent 0 50%) 0 0 / 22px 22px, #fff;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  cursor: pointer;
+  min-height: 0;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.mf-board-thumb iframe {
+.mf-cell:hover {
+  border-color: var(--accent, #c1543a);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.13);
+}
+.mf-cell-stage {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+.mf-cell-frame {
   width: 1100px;
   height: 760px;
   border: none;
-  transform: scale(0.55);
-  transform-origin: top left;
+  background: #fff;
   pointer-events: none;
 }
 .mf-board-live {
@@ -1412,29 +1403,29 @@ code,
   border: 0;
   pointer-events: none;
 }
-.mf-board-card:hover .mf-board-thumb,
-.mf-board-card:hover .vd-phone {
-  transform: translateY(-3px);
-  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.16);
-  border-color: var(--accent, #c1543a);
-}
-.mf-board-card:hover .vd-phone {
-  /* .vd-phone has no border — lift only */
-  border-color: transparent;
-}
-.mf-board-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  padding: 0 4px;
-}
-.mf-board-meta .t {
-  font-size: 13.5px;
+.mf-cell-title {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 20px);
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--border, #e6e4de);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  font-size: 12px;
   font-weight: 600;
   color: var(--text-primary, #191915);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.mf-board-meta .p {
-  font-size: 11.5px;
+.mf-cell-title .p {
+  font-weight: 400;
+  font-size: 10.5px;
   color: var(--text-secondary, #6b6b6b);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }

@@ -45,6 +45,13 @@ const BEZEL: Record<PhoneShell, number> = {
   minimal: 6,
 };
 
+// Outer dimensions (screen + bezel) — used by fit-to-cell scaling in boards.
+export function shellOuterDims(shell: PhoneShell): { w: number; h: number } {
+  const spec = shellSpec(shell);
+  const b = BEZEL[shell];
+  return { w: spec.w + b * 2, h: spec.h + b * 2 };
+}
+
 export function PhoneFrame({ shell = "iphone-dark", children }: { shell?: PhoneShell; children: ReactNode }) {
   const spec = shellSpec(shell);
   const bezel = BEZEL[shell];

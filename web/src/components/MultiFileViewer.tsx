@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { CSSProperties, useEffect, useRef, useState } from "react";
 import { ArtifactVersion } from "../lib/types";
 import { SiteManifest } from "../lib/artifact";
 import { t } from "../lib/i18n";
-import { PhoneFrame, PhoneShell } from "./PhoneFrame";
+import { PhoneFrame, PhoneShell, shellOuterDims } from "./PhoneFrame";
 
 interface Props {
   projectId: string;
@@ -35,18 +35,27 @@ export function MultiFileViewer({ projectId, version, onEditSite, device = "web"
   const flows = version.site?.flows ?? [];
   const isSite = sitePages.length > 0;
 
-  // Overview board rows: one row per flow (steps resolved to pages), plus a
-  // catch-all row for pages not in any flow (or all pages when no flows).
-  const boardRows: { label: string; pages: { path: string; title: string }[] }[] = (() => {
-    const rows = flows.map((f) => ({
-      label: f.name,
-      pages: f.steps.map((s) => sitePages.find((p) => p.path === s)).filter((p): p is { path: string; title: string } => !!p),
-    }));
-    const inFlow = new Set(flows.flatMap((f) => f.steps));
-    const rest = sitePages.filter((p) => !inFlow.has(p.path));
-    if (rest.length || !rows.length) rows.push({ label: flows.length ? t("其他页面") : t("全部页面"), pages: rest });
-    return rows.filter((r) => r.pages.length);
-  })();
+  // Adaptive overview grid (page-count driven):
+  // 1 → fullscreen · 2 → halves (user toggles horizontal/vertical) · 3 → 3 cols ·
+  // 4 → 2×2 · 5-6 → 3×2 · 7-9 → 3×3 · >9 → 3-col scroll.
+  const [ovDir, setOvDir] = useState<"row" | "col">(() => (localStorage.getItem("vd_ov2dir") as "row" | "col") || "row");
+  const n = sitePages.length;
+  const gridStyle: CSSProperties =
+    n <= 1
+      ? { gridTemplateColumns: "1fr", gridTemplateRows: "1fr" }
+      : n === 2
+        ? ovDir === "row"
+          ? { gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr" }
+          : { gridTemplateColumns: "1fr", gridTemplateRows: "1fr 1fr" }
+        : n === 3
+          ? { gridTemplateColumns: "repeat(3, 1fr)", gridTemplateRows: "1fr" }
+          : n === 4
+            ? { gridTemplateColumns: "repeat(2, 1fr)", gridTemplateRows: "repeat(2, 1fr)" }
+            : n <= 6
+              ? { gridTemplateColumns: "repeat(3, 1fr)", gridTemplateRows: "repeat(2, 1fr)" }
+              : n <= 9
+                ? { gridTemplateColumns: "repeat(3, 1fr)", gridTemplateRows: "repeat(3, 1fr)" }
+                : { gridTemplateColumns: "repeat(3, 1fr)", gridAutoRows: "calc((100% - 28px) / 3)" };
 
   const [tab, setTab] = useState<string>("preview");
   const [page, setPage] = useState<string>(entry);
@@ -236,46 +245,45 @@ export function MultiFileViewer({ projectId, version, onEditSite, device = "web"
       <div className="mf-body">
         {tab === "overview" && isSite ? (
           <div className="mf-overview">
-            <div className="mf-board">
-              {boardRows.map((row) => (
-                <div className="mf-board-row" key={row.label}>
-                  <span className="mf-board-label">{row.label}</span>
-                  <div className="mf-board-chain">
-                    {row.pages.map((p, i) => (
-                      <span key={p.path} className="mf-board-item">
-                        {i > 0 && (
-                          <span className="mf-board-link" aria-hidden>
-                            <span className="line" />
-                            <span className="arrow">›</span>
-                          </span>
-                        )}
-                        <div
-                          className="mf-board-card"
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => {
-                            setPage(p.path);
-                            setTab("preview");
-                          }}
-                        >
-                          {device !== "web" ? (
-                            <PhoneFrame shell={shell}>
-                              <iframe className="mf-board-live" src={base + p.path} sandbox="allow-scripts allow-same-origin" tabIndex={-1} title={p.title} />
-                            </PhoneFrame>
-                          ) : (
-                            <span className="mf-board-thumb">
-                              <iframe src={base + p.path} sandbox="allow-scripts allow-same-origin" tabIndex={-1} title={p.title} />
-                            </span>
-                          )}
-                          <span className="mf-board-meta">
-                            <span className="t">{p.title}</span>
-                            <span className="p">{p.path}</span>
-                          </span>
-                        </div>
-                      </span>
-                    ))}
-                  </div>
-                </div>
+            {n === 2 && (
+              <div className="mf-ov-dir">
+                <button
+                  className={ovDir === "row" ? "on" : ""}
+                  title={t("左右各一半")}
+                  onClick={() => {
+                    setOvDir("row");
+                    localStorage.setItem("vd_ov2dir", "row");
+                  }}
+                >
+                  ⇋ {t("左右")}
+                </button>
+                <button
+                  className={ovDir === "col" ? "on" : ""}
+                  title={t("上下各一半")}
+                  onClick={() => {
+                    setOvDir("col");
+                    localStorage.setItem("vd_ov2dir", "col");
+                  }}
+                >
+                  ⇅ {t("上下")}
+                </button>
+              </div>
+            )}
+            <div className="mf-ov-grid" style={gridStyle}>
+              {sitePages.map((p, i) => (
+                <BoardCell
+                  key={p.path}
+                  src={base + p.path}
+                  title={p.title}
+                  path={p.path}
+                  index={i}
+                  device={device}
+                  shell={shell}
+                  onOpen={() => {
+                    setPage(p.path);
+                    setTab("preview");
+                  }}
+                />
               ))}
             </div>
           </div>
@@ -311,6 +319,62 @@ export function MultiFileViewer({ projectId, version, onEditSite, device = "web"
           </pre>
         )}
       </div>
+    </div>
+  );
+}
+
+// One adaptive-grid cell: a live page preview (phone shell or bare iframe)
+// scaled to fill the cell, with a title chip. Click opens the page.
+function BoardCell({
+  src,
+  title,
+  path,
+  index,
+  device,
+  shell,
+  onOpen,
+}: {
+  src: string;
+  title: string;
+  path: string;
+  index: number;
+  device: "web" | "mobile" | "app";
+  shell: PhoneShell;
+  onOpen: () => void;
+}) {
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(0.3);
+  const dims = device !== "web" ? shellOuterDims(shell) : { w: 1100, h: 760 };
+
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+    const update = () => setScale(Math.min(el.clientWidth / dims.w, el.clientHeight / dims.h));
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [dims.w, dims.h]);
+
+  return (
+    <div className="mf-cell" role="button" tabIndex={0} onClick={onOpen}>
+      <div className="mf-cell-stage" ref={stageRef}>
+        <div style={{ width: dims.w * scale, height: dims.h * scale, position: "relative" }}>
+          <div style={{ transform: `scale(${scale})`, transformOrigin: "top left", width: dims.w, height: dims.h }}>
+            {device !== "web" ? (
+              <PhoneFrame shell={shell}>
+                <iframe className="mf-board-live" src={src} sandbox="allow-scripts allow-same-origin" tabIndex={-1} title={title} />
+              </PhoneFrame>
+            ) : (
+              <iframe className="mf-cell-frame" src={src} sandbox="allow-scripts allow-same-origin" tabIndex={-1} title={title} />
+            )}
+          </div>
+        </div>
+      </div>
+      <span className="mf-cell-title">
+        {index + 1} · {title}
+        <span className="p">{path}</span>
+      </span>
     </div>
   );
 }
