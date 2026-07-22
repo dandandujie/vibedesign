@@ -30,16 +30,21 @@ export function VersionManager({ projectId, projectName, artifacts, activeVersio
   const stageRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.5);
 
-  // Fit the fixed-width preview into whatever space the pane has.
+  // Fit the fixed-width preview into whatever space the pane has. Multi-file
+  // versions are fitted by height (page strip); single-file by width.
+  const selectedKind = artifacts.find((v) => v.id === selectedId)?.kind ?? "html";
   useEffect(() => {
     const el = stageRef.current;
     if (!el) return;
-    const update = () => setScale(Math.min(1, el.clientWidth / PREVIEW_W));
+    const update = () => {
+      if (selectedKind === "multifile") setScale(Math.min(1, (el.clientHeight - 24) / 948, el.clientWidth / 634));
+      else setScale(Math.min(1, el.clientWidth / PREVIEW_W));
+    };
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [selectedKind]);
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -57,6 +62,18 @@ export function VersionManager({ projectId, projectName, artifacts, activeVersio
   const selectedIdx = selected ? artifacts.findIndex((a) => a.id === selected.id) : -1;
   const previewSrc =
     selected?.kind === "multifile" && selected.entry ? `/api/mf/${projectId}/${selected.id}/${selected.entry}` : null;
+  // Multi-file versions preview ALL pages side by side (not just the entry).
+  const mfPages: { path: string; title: string }[] =
+    selected?.kind === "multifile" && selected.files
+      ? (selected.site?.pages ?? []).filter((p) => selected.files?.[p.path]).length
+        ? (selected.site?.pages ?? []).filter((p) => selected.files?.[p.path])
+        : Object.keys(selected.files)
+            .filter((p) => /\.html?$/i.test(p))
+            .map((p) => ({ path: p, title: p }))
+      : [];
+  // Sized wrapper keeps scrollbars proportional to the SCALED strip (no dead space).
+  const stripW = mfPages.length * 586 + 48;
+  const stripH = 948;
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -101,13 +118,28 @@ export function VersionManager({ projectId, projectName, artifacts, activeVersio
                   <span className="muted" style={{ fontSize: 12 }}>{new Date(selected.createdAt).toLocaleString()}</span>
                 </div>
                 <div className="vm-preview-stage" ref={stageRef}>
-                  <div className="vm-preview-scale" style={{ transform: `scale(${scale})`, width: PREVIEW_W }}>
-                    {previewSrc ? (
-                      <iframe className="vm-frame" src={previewSrc} sandbox="allow-scripts allow-same-origin" title="version preview" />
-                    ) : (
-                      <iframe className="vm-frame" srcDoc={selected.html} sandbox="allow-scripts" title="version preview" />
-                    )}
-                  </div>
+                  {selected.kind === "multifile" && mfPages.length ? (
+                    <div className="vm-pages-stage">
+                      <div style={{ width: stripW * scale, height: stripH * scale }}>
+                        <div className="vm-pages-strip" style={{ transform: `scale(${scale})` }}>
+                          {mfPages.map((p) => (
+                            <div className="vm-page-card" key={p.path}>
+                              <iframe src={`/api/mf/${projectId}/${selected.id}/${p.path}`} sandbox="allow-scripts allow-same-origin" title={p.title} />
+                              <span className="vm-page-title">{p.title}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="vm-preview-scale" style={{ transform: `scale(${scale})`, width: PREVIEW_W }}>
+                      {previewSrc ? (
+                        <iframe className="vm-frame" src={previewSrc} sandbox="allow-scripts allow-same-origin" title="version preview" />
+                      ) : (
+                        <iframe className="vm-frame" srcDoc={selected.html} sandbox="allow-scripts" title="version preview" />
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="vm-actions">
                   <button

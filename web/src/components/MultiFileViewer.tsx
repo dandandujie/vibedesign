@@ -35,6 +35,19 @@ export function MultiFileViewer({ projectId, version, onEditSite, device = "web"
   const flows = version.site?.flows ?? [];
   const isSite = sitePages.length > 0;
 
+  // Overview board rows: one row per flow (steps resolved to pages), plus a
+  // catch-all row for pages not in any flow (or all pages when no flows).
+  const boardRows: { label: string; pages: { path: string; title: string }[] }[] = (() => {
+    const rows = flows.map((f) => ({
+      label: f.name,
+      pages: f.steps.map((s) => sitePages.find((p) => p.path === s)).filter((p): p is { path: string; title: string } => !!p),
+    }));
+    const inFlow = new Set(flows.flatMap((f) => f.steps));
+    const rest = sitePages.filter((p) => !inFlow.has(p.path));
+    if (rest.length || !rows.length) rows.push({ label: flows.length ? t("其他页面") : t("全部页面"), pages: rest });
+    return rows.filter((r) => r.pages.length);
+  })();
+
   const [tab, setTab] = useState<string>("preview");
   const [page, setPage] = useState<string>(entry);
   const [ready, setReady] = useState(false);
@@ -223,74 +236,47 @@ export function MultiFileViewer({ projectId, version, onEditSite, device = "web"
       <div className="mf-body">
         {tab === "overview" && isSite ? (
           <div className="mf-overview">
-            <div className="mf-overview-inner">
-              {flows.length > 0 && (
-                <section className="mf-ov-sec">
-                  <h3 className="mf-ov-h">{t("用户流程")}</h3>
-                  <div className="mf-flows">
-                    {flows.map((f) => (
-                      <div key={f.name} className="mf-flow">
-                        <span className="mf-flow-name">{f.name}</span>
-                        <div className="mf-flow-track">
-                          {f.steps.map((s, i) => {
-                            const sp = sitePages.find((p) => p.path === s);
-                            return (
-                              <span key={`${s}-${i}`} className="mf-flow-steps">
-                                {i > 0 && (
-                                  <span className="mf-flow-link" aria-hidden>
-                                    <span className="line" />
-                                    <span className="arrow">›</span>
-                                  </span>
-                                )}
-                                <button
-                                  className="mf-flow-node"
-                                  onClick={() => {
-                                    if (sp) {
-                                      setPage(sp.path);
-                                      setTab("preview");
-                                    }
-                                  }}
-                                >
-                                  <span className="n">{i + 1}</span>
-                                  {sp?.title ?? s}
-                                </button>
-                              </span>
-                            );
-                          })}
+            <div className="mf-board">
+              {boardRows.map((row) => (
+                <div className="mf-board-row" key={row.label}>
+                  <span className="mf-board-label">{row.label}</span>
+                  <div className="mf-board-chain">
+                    {row.pages.map((p, i) => (
+                      <span key={p.path} className="mf-board-item">
+                        {i > 0 && (
+                          <span className="mf-board-link" aria-hidden>
+                            <span className="line" />
+                            <span className="arrow">›</span>
+                          </span>
+                        )}
+                        <div
+                          className="mf-board-card"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => {
+                            setPage(p.path);
+                            setTab("preview");
+                          }}
+                        >
+                          {device !== "web" ? (
+                            <PhoneFrame shell={shell}>
+                              <iframe className="mf-board-live" src={base + p.path} sandbox="allow-scripts allow-same-origin" tabIndex={-1} title={p.title} />
+                            </PhoneFrame>
+                          ) : (
+                            <span className="mf-board-thumb">
+                              <iframe src={base + p.path} sandbox="allow-scripts allow-same-origin" tabIndex={-1} title={p.title} />
+                            </span>
+                          )}
+                          <span className="mf-board-meta">
+                            <span className="t">{p.title}</span>
+                            <span className="p">{p.path}</span>
+                          </span>
                         </div>
-                      </div>
+                      </span>
                     ))}
                   </div>
-                </section>
-              )}
-              <section className="mf-ov-sec">
-                <h3 className="mf-ov-h">
-                  {t("全部页面")} <span className="mf-ov-count">{sitePages.length}</span>
-                </h3>
-                <div className="mf-grid">
-                  {sitePages.map((p, i) => (
-                    <button
-                      key={p.path}
-                      className="mf-thumb"
-                      onClick={() => {
-                        setPage(p.path);
-                        setTab("preview");
-                      }}
-                    >
-                      <span className="mf-thumb-frame">
-                        <iframe src={base + p.path} sandbox="allow-scripts allow-same-origin" tabIndex={-1} title={p.title} />
-                      </span>
-                      <span className="mf-thumb-meta">
-                        <span className="mf-thumb-title">
-                          <span className="mf-thumb-n">{i + 1}</span>
-                          {p.title}
-                        </span>
-                        <span className="mf-thumb-path">{p.path}</span>
-                      </span>
-                    </button>
-                  ))}
                 </div>
-              </section>
+              ))}
             </div>
           </div>
         ) : tab === "preview" ? (

@@ -860,7 +860,9 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
               <HistoryIcon size={15} />
             </button>
             {historyOpen && (
-              <div className="mini-menu wide" ref={clampPop}>
+              // key re-mounts when the async session chain arrives so clampPop
+              // re-measures and the menu never overflows the viewport.
+              <div className="mini-menu wide" key={`sess-${sessionChain.length}`} ref={clampPop}>
                 <button
                   onClick={() => {
                     setHistoryOpen(false);

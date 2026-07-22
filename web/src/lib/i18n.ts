@@ -324,6 +324,7 @@ const EN: Record<string, string> = {
   "已恢复为该版本（存为新版本）": "Restored (saved as a new version)",
   "概览": "Overview",
   "站点概览（全部页面 + 流程）": "Site overview (all pages + flows)",
+  "其他页面": "Other pages",
   "预览": "Preview",
   "iPhone · 深色": "iPhone · Dark",
   "iPhone · 浅色": "iPhone · Light",
