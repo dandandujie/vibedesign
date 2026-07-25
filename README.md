@@ -141,3 +141,7 @@ git push origin main --tags
 ## 社区 · 友情链接
 
 - [linux.do](https://linux.do) — 新的理想型社区，欢迎来交流 🐧
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=dandandujie/vibedesign&type=Date)](https://www.star-history.com/#dandandujie/vibedesign&Date)
