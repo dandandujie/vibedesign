@@ -144,4 +144,10 @@ git push origin main --tags
 
 ## Star History
 
-[![Star History Chart](docs/assets/star-history.svg)](https://www.star-history.com/#dandandujie/vibedesign&Date)
+<a href="https://www.star-history.com/?repos=dandandujie%2Fvibedesign&type=date&legend=top-left">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=dandandujie/vibedesign&type=date&theme=dark&legend=top-left&sealed_token=_O3OydgXS3q8j8p5DN782BrU_u-YzUtvKI3hhMrRRzUyYL5umhvntQPI5lyNiX9I74M7CrlNmMGnV938OHzqSfSAIEOEjoADsb7PeQtU8wuZUYMa6f89_FHi1x78cwhQpfVpdNkJ_SS3_qV-1pOen9N4n-DVY6auw9DO7OZi_bgmCauo111ae9hopuI1" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=dandandujie/vibedesign&type=date&legend=top-left&sealed_token=_O3OydgXS3q8j8p5DN782BrU_u-YzUtvKI3hhMrRRzUyYL5umhvntQPI5lyNiX9I74M7CrlNmMGnV938OHzqSfSAIEOEjoADsb7PeQtU8wuZUYMa6f89_FHi1x78cwhQpfVpdNkJ_SS3_qV-1pOen9N4n-DVY6auw9DO7OZi_bgmCauo111ae9hopuI1" />
+    <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=dandandujie/vibedesign&type=date&legend=top-left&sealed_token=_O3OydgXS3q8j8p5DN782BrU_u-YzUtvKI3hhMrRRzUyYL5umhvntQPI5lyNiX9I74M7CrlNmMGnV938OHzqSfSAIEOEjoADsb7PeQtU8wuZUYMa6f89_FHi1x78cwhQpfVpdNkJ_SS3_qV-1pOen9N4n-DVY6auw9DO7OZi_bgmCauo111ae9hopuI1" />
+  </picture>
+</a>
