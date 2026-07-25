@@ -144,4 +144,4 @@ git push origin main --tags
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=dandandujie/vibedesign&type=Date)](https://www.star-history.com/#dandandujie/vibedesign&Date)
+[![Star History Chart](docs/assets/star-history.svg)](https://www.star-history.com/#dandandujie/vibedesign&Date)
