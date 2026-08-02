@@ -6,6 +6,7 @@ import { filesToDataUrls } from "../components/ChatPanel";
 import { parseDesignFile } from "../lib/designFileImport";
 import { pickLocalCodebase } from "../lib/localCodebase";
 import { XIcon } from "../components/icons";
+import { ThemeToggle } from "../components/ThemeToggle";
 
 // Design-system setup, replicated from the live field study (2026-07-11):
 // full-page form (blurb / GitHub / local folder / assets / notes) →
@@ -84,11 +85,14 @@ export function DsSetupPage() {
         <button className="btn" onClick={() => (step === "confirm" ? setStep("form") : (location.hash = "#/?tab=design-systems"))}>
           {t("← Back")}
         </button>
-        {step === "form" && (
-          <button className="btn primary" disabled={!blurb.trim()} onClick={() => setStep("confirm")}>
-            {t("Continue to generation →")}
-          </button>
-        )}
+        <div className="ds-setup-actions">
+          <ThemeToggle />
+          {step === "form" && (
+            <button className="btn primary" disabled={!blurb.trim()} onClick={() => setStep("confirm")}>
+              {t("Continue to generation →")}
+            </button>
+          )}
+        </div>
       </header>
 
       {step === "form" ? (

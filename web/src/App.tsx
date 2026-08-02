@@ -4,6 +4,7 @@ import { useLang } from "./lib/i18n";
 import { HomePage } from "./pages/HomePage";
 import { EditorPage } from "./pages/EditorPage";
 import { DsSetupPage } from "./pages/DsSetupPage";
+import { ProjectWorkspacePage } from "./pages/ProjectWorkspacePage";
 import { SettingsModal } from "./components/SettingsModal";
 
 // Hash router: "#/" home · "#/p/<id>" editor (spec §1).
@@ -41,10 +42,13 @@ export function App() {
   }, []);
 
   const projMatch = route.match(/^#\/p\/([\w-]+)/);
+  const projectV2Match = route.match(/^#\/project\/([\w-]+)/);
 
   return (
     <>
-      {projMatch ? (
+      {projectV2Match ? (
+        <ProjectWorkspacePage key={projectV2Match[1]} projectId={projectV2Match[1]} />
+      ) : projMatch ? (
         <EditorPage
           key={projMatch[1]} // remount per project: no state/stream bleed
           projectId={projMatch[1]}

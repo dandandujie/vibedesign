@@ -37,6 +37,7 @@ import {
   ChevronRight,
 } from "../components/icons";
 import { clampPop } from "../lib/popover";
+import { ThemeToggle } from "../components/ThemeToggle";
 
 type CanvasTool = null | "annotate" | "edit" | "tweaks";
 
@@ -1086,6 +1087,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
             </button>
           )}
           <div className="spacer" />
+          <ThemeToggle />
           <div className="device-switch" role="group" aria-label={t("预览设备")}>
             {(
               [

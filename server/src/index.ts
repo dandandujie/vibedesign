@@ -39,6 +39,7 @@ import { serveMultiFile } from "./multiFile.js";
 import { serveDeckAsset } from "./deckAssets.js";
 import { moduleDir } from "./paths.js";
 import { randomUUID } from "node:crypto";
+import { mountProjectV2Api } from "./projectApi.js";
 
 const app = express();
 
@@ -409,6 +410,16 @@ app.put("/api/projects/:id", (req, res) => res.json(saveProject(req.body)));
 app.delete("/api/projects/:id", (req, res) => {
   deleteProject(req.params.id);
   res.json({ ok: true });
+});
+
+// Project V2 is additive during the preview phase. Legacy /api/projects stays
+// untouched until the one-time migration has its own rollback coverage.
+mountProjectV2Api(app, {
+  appVersion,
+  resolveProvider: (providerId) => {
+    const id = providerId || getActiveProviderId();
+    return id ? getProvider(id) : undefined;
+  },
 });
 
 // ---- Chat (SSE streaming) --------------------------------------------------

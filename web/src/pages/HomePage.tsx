@@ -20,6 +20,11 @@ import {
   TrashIcon,
 } from "../components/icons";
 import { clampPop } from "../lib/popover";
+import type { ProjectIndexEntry } from "../../../shared/project";
+import { listProjectV2, removeProjectV2FromIndex } from "../lib/projectApi";
+import { ProjectStartDialog } from "../components/ProjectStartDialog";
+import { PreviewSafetyDialog } from "../components/PreviewSafetyDialog";
+import { ThemeToggle } from "../components/ThemeToggle";
 
 interface Props {
   meta: Meta | null;
@@ -97,6 +102,7 @@ const TEMPLATES: { name: string; art: JSX.Element }[] = [
 
 export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
+  const [projectV2, setProjectV2] = useState<ProjectIndexEntry[]>([]);
   const [designSystems, setDesignSystems] = useState<DesignSystem[]>([]);
   const [prompt, setPrompt] = useState("");
   const [images, setImages] = useState<string[]>([]);
@@ -108,12 +114,15 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
   const [query, setQuery] = useState("");
   const [editingDS, setEditingDS] = useState<DesignSystem | null>(null);
   const [addDSOpen, setAddDSOpen] = useState(false);
+  const [projectStartOpen, setProjectStartOpen] = useState(false);
+  const [previewSafetyOpen, setPreviewSafetyOpen] = useState(false);
   const [rowMenu, setRowMenu] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const refresh = () => {
     listProjects().then(setProjects);
+    listProjectV2().then(setProjectV2).catch(() => setProjectV2([]));
     listDesignSystems().then(setDesignSystems);
   };
   useEffect(refresh, []);
@@ -177,6 +186,7 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
 
   const providers = meta?.providers ?? [];
   const filtered = projects.filter((p) => p.name.toLowerCase().includes(query.toLowerCase()));
+  const filteredV2 = projectV2.filter((p) => p.name.toLowerCase().includes(query.toLowerCase()));
 
   return (
     <div className="home">
@@ -186,8 +196,10 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
           <span className="beta">{t("Beta")}</span>
         </div>
         <div className="spacer" />
+        <ThemeToggle />
         <LangToggle />
         <ChangelogButton />
+        <button className="btn ghost small" onClick={() => setPreviewSafetyOpen(true)}>预览安全</button>
         <button className="btn ghost small" onClick={onOpenSettings}>
           {t("模型服务")}
         </button>
@@ -196,6 +208,21 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
       <main className="home-main">
         <h1 className="home-title">{t("What will you design today?")}</h1>
 
+        <section className="v2-home-launch">
+          <div>
+            <span className="v2-kicker">LOCAL UI/UX PROJECTS</span>
+            <h2>持续设计一个完整产品，而不只是一张页面</h2>
+            <p>页面、体验流程和项目设计语言共同保存在你选择的本地目录中。</p>
+          </div>
+          <button className="btn primary" onClick={() => setProjectStartOpen(true)}>
+            <PlusIcon size={15} /> 新建设计项目
+          </button>
+        </section>
+
+        <div className="legacy-composer-label">
+          <span>扩展创作</span>
+          <p>快速生成单次 Artifact；幻灯片、文档、动画等扩展能力保留在这里。</p>
+        </div>
         <div className="home-composer">
           {(images.length > 0 || codebase) && (
             <div className="attach-row">
@@ -307,11 +334,45 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
 
           {tab === "projects" && (
             <div className="project-rows">
-              {filtered.length === 0 && (
+              <div className="project-list-label">
+                <span>设计项目</span>
+                <small>本地项目文件树</small>
+              </div>
+              {filteredV2.map((p) => (
+                <div
+                  key={p.id}
+                  className={`project-row v2-project-row ${p.missing || p.invalid ? "project-unavailable" : ""}`}
+                  onClick={() => !p.missing && !p.invalid && (location.hash = `#/project/${p.id}`)}
+                >
+                  <span className="thumb v2-thumb"><span>{p.platform === "web" ? "W" : p.platform === "mobile" ? "M" : "D"}</span></span>
+                  <span className="name">
+                    {p.favorite && <StarIcon size={13} filled style={{ color: "var(--accent)", marginRight: 5, verticalAlign: -2 }} />}
+                    {p.name}
+                    <small>{p.missing ? "目录已移动" : p.invalid ? "项目清单无效" : "Project V2"}</small>
+                  </span>
+                  <span className="time">{timeAgo(p.updatedAt)}</span>
+                  <button
+                    className="iconbtn row-more"
+                    title="从最近项目中移除（不会删除本地文件）"
+                    onClick={async (event) => {
+                      event.stopPropagation();
+                      await removeProjectV2FromIndex(p.id);
+                      refresh();
+                    }}
+                  >
+                    <XIcon size={13} />
+                  </button>
+                </div>
+              ))}
+              {filteredV2.length === 0 && (
                 <p className="muted" style={{ padding: "14px 6px", fontSize: 13.5 }}>
-                  {t("还没有项目。从上面的输入框开始第一个设计。")}
+                  还没有本地设计项目。先确认一份项目提案。
                 </p>
               )}
+              <div className="project-list-label legacy-project-label">
+                <span>扩展项目</span>
+                <small>旧版 Artifact 工作区</small>
+              </div>
               {filtered.map((p) => (
                 <div key={p.id} className="project-row" onClick={() => renaming !== p.id && (location.hash = `#/p/${p.id}`)}>
                   <span className="thumb" />
@@ -521,6 +582,10 @@ export function HomePage({ meta, onMetaChanged, onOpenSettings }: Props) {
           </div>
         </div>
       )}
+      {projectStartOpen && (
+        <ProjectStartDialog designSystems={designSystems} meta={meta} onClose={() => setProjectStartOpen(false)} />
+      )}
+      {previewSafetyOpen && <PreviewSafetyDialog onClose={() => setPreviewSafetyOpen(false)} />}
     </div>
   );
 }

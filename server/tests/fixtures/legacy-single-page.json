@@ -1,0 +1,17 @@
+{
+  "id": "legacy-single",
+  "name": "Legacy single page",
+  "messages": [],
+  "artifacts": [
+    {
+      "id": "v1",
+      "html": "<!doctype html><html><body><main>Legacy page</main></body></html>",
+      "label": "Initial design",
+      "createdAt": 1700000000000,
+      "kind": "html",
+      "source": "ai"
+    }
+  ],
+  "activeVersionId": "v1",
+  "updatedAt": 1700000000000
+}

@@ -1,0 +1,33 @@
+{
+  "id": "legacy-site",
+  "name": "Legacy site",
+  "messages": [],
+  "artifacts": [
+    {
+      "id": "v1",
+      "html": "<!doctype html><html><body><a href=\"project.html\">Open</a></body></html>",
+      "label": "Two page site",
+      "createdAt": 1700000000000,
+      "kind": "multifile",
+      "source": "ai",
+      "entry": "index.html",
+      "files": {
+        "index.html": "<!doctype html><html><body><a href=\"project.html\">Open</a></body></html>",
+        "project.html": "<!doctype html><html><body><main>Project</main></body></html>",
+        "styles.css": ":root { --color-primary: #635bff; }",
+        "site.json": "{\"pages\":[{\"path\":\"index.html\",\"title\":\"Dashboard\"},{\"path\":\"project.html\",\"title\":\"Project\"}],\"flows\":[{\"name\":\"Open project\",\"steps\":[\"index.html\",\"project.html\"]}]}"
+      },
+      "site": {
+        "pages": [
+          { "path": "index.html", "title": "Dashboard" },
+          { "path": "project.html", "title": "Project" }
+        ],
+        "flows": [
+          { "name": "Open project", "steps": ["index.html", "project.html"] }
+        ]
+      }
+    }
+  ],
+  "activeVersionId": "v1",
+  "updatedAt": 1700000000000
+}

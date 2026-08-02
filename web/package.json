@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "test": "node ../server/node_modules/tsx/dist/cli.mjs --test tests/*.test.ts",
     "build": "tsc -b && vite build",
     "preview": "vite preview"
   },

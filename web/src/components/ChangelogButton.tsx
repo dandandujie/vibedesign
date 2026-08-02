@@ -18,6 +18,7 @@ declare global {
     vd?: {
       platform: string;
       openProjectWindow: (projectId: string) => void;
+      selectDirectory: () => Promise<string | null>;
       installUpdate: () => void;
       onUpdateStatus: (cb: (s: string) => void) => void;
     };

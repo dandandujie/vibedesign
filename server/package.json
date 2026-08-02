@@ -9,10 +9,12 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
+    "test": "tsx --test tests/*.test.ts",
     "bundle": "node build.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "archiver": "^5.3.2",
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "ffmpeg-static": "^5.3.0",
@@ -20,10 +22,12 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@types/archiver": "^5.3.4",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/node": "^22.10.0",
     "esbuild": "^0.28.1",
+    "extract-zip": "^2.0.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }

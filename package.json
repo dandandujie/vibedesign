@@ -1,6 +1,6 @@
 {
   "name": "vibedesign",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "private": true,
   "description": "Local 1:1 replica of Claude Design (BYOK) — chat-driven design workbench.",
   "license": "MIT",
@@ -11,6 +11,10 @@
   "main": "electron/main.cjs",
   "scripts": {
     "install:all": "npm --prefix server install && npm --prefix web install",
+    "test": "npm --prefix server test && npm --prefix web test",
+    "test:e2e": "npm run build && node scripts/current-e2e-smoke.mjs",
+    "test:packaged-runtime": "npm run build && electron-builder --win --dir && node scripts/packaged-runtime-smoke.mjs",
+    "benchmark:project-v2": "node scripts/project-v2-benchmark.mjs",
     "dev": "concurrently -n server,web -c cyan,magenta \"npm --prefix server run dev\" \"npm --prefix web run dev\"",
     "dev:server": "npm --prefix server run dev",
     "dev:web": "npm --prefix web run dev",
@@ -24,6 +28,7 @@
   "build": {
     "appId": "app.vibedesign.local",
     "productName": "Vibedesign",
+    "icon": "build/icon.png",
     "publish": {
       "provider": "github",
       "releaseType": "release"
@@ -35,12 +40,14 @@
       "electron/**",
       "server/dist/**",
       "web/dist/**",
+      "build/icon.png",
       "node_modules/playwright/**",
       "node_modules/playwright-core/**",
       "node_modules/ffmpeg-static/**",
       "package.json"
     ],
     "mac": {
+      "icon": "build/icon.icns",
       "target": [
         "dmg",
         "zip"
@@ -48,6 +55,7 @@
       "category": "public.app-category.graphics-design"
     },
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         "nsis",
         "zip"
@@ -59,9 +67,9 @@
     }
   },
   "devDependencies": {
-    "concurrently": "^9.1.0",
-    "electron": "^37.0.0",
-    "electron-builder": "^25.1.8"
+    "concurrently": "^10.0.4",
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3"
   },
   "dependencies": {
     "electron-updater": "^6.8.9",
