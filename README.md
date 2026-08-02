@@ -66,7 +66,7 @@ npm run test:packaged-runtime # 生成 Windows unpacked 产物并验证安装版
 
 桌面版把 Express 服务内嵌进主进程（端口 8788），数据存在系统 userData 目录，与开发环境隔离。安装版的体验流程验证复用 Electron 自带 Chromium，不要求用户另行安装 Playwright 浏览器。
 
-Project V2 预览迁移不会覆盖旧项目数据；备份核验、停止使用预览模型和脱敏反馈导出参见[预览安全与回滚说明](./docs/preview-safety-and-rollback.md)。
+Project V2 预览迁移不会覆盖旧项目数据；备份核验、停止使用预览模型和脱敏反馈导出可在应用内的“预览安全与反馈”面板完成。
 
 ### 在 coding agent 中使用（/design）
 
