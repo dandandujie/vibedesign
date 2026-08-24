@@ -38,6 +38,7 @@ import {
 } from "../components/icons";
 import { clampPop } from "../lib/popover";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { download, safeName } from "../lib/exporters";
 
 type CanvasTool = null | "annotate" | "edit" | "tweaks";
 
@@ -864,10 +865,55 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
     location.hash = "#/";
   };
 
+  const currentArtifactHtml = (): string | null => {
+    if (!canvasHtml) return null;
+    return stripWorkingAttrs(isMultifile ? withBase(canvasHtml) : canvasHtml);
+  };
+
   const openInNewTab = () => {
-    if (!canvasHtml) return;
-    const blob = new Blob([stripWorkingAttrs(isMultifile ? withBase(canvasHtml) : canvasHtml)], { type: "text/html" });
-    window.open(URL.createObjectURL(blob), "_blank");
+    const html = currentArtifactHtml();
+    if (!html) return;
+    const bridge = (window as unknown as { vd?: { openArtifactWindow?: (content: string) => void } }).vd;
+    if (bridge?.openArtifactWindow) {
+      bridge.openArtifactWindow(html);
+      return;
+    }
+
+    const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+    const opened = window.open(url, "_blank");
+    if (!opened) {
+      URL.revokeObjectURL(url);
+      return;
+    }
+    try {
+      opened.opener = null;
+    } catch {
+      /* browser may reject changing opener */
+    }
+    const revoke = () => URL.revokeObjectURL(url);
+    opened.addEventListener("load", revoke, { once: true });
+    setTimeout(revoke, 30_000);
+  };
+
+  const exportCurrentPdf = async () => {
+    const html = currentArtifactHtml();
+    if (!html || !proj) return;
+    setToast(t("PDF 渲染中…"));
+    try {
+      const response = await fetch("/api/render-screenshot", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ html, format: "pdf", width: 1280, scale: 2 }),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error ?? `HTTP ${response.status}`);
+      }
+      download(`${safeName(proj.name)}.pdf`, await response.blob(), "application/pdf");
+      setToast(t("PDF 已导出"));
+    } catch (error) {
+      setError(`PDF 导出失败：${error instanceof Error ? error.message : String(error)}`);
+    }
   };
 
   const frameOffset = useMemo(() => {
@@ -1407,14 +1453,7 @@ export function EditorPage({ projectId, meta, onMetaChanged, onOpenSettings }: P
           onPick={(entry) => {
             setSkillsOpen(false);
             if (entry.action === "save-pdf") {
-              if (canvasHtml) {
-                const w = window.open("", "_blank");
-                if (w) {
-                  w.document.write(stripWorkingAttrs(canvasHtml));
-                  w.document.close();
-                  setTimeout(() => w.print(), 400);
-                }
-              }
+              void exportCurrentPdf();
               return;
             }
             setActiveSkill(entry);

@@ -48,6 +48,19 @@ export const Canvas = forwardRef<CanvasHandle, Props>(function Canvas(
     iframeRef.current?.contentWindow?.postMessage(cmd, "*");
   };
 
+  const requestSerialize = (clean?: boolean) =>
+    new Promise<string>((resolve) => {
+      const reqId = ++reqCounter;
+      serializeWaiters.current.set(reqId, resolve);
+      postCmd({ __vd_cmd: "serialize", reqId, clean: !!clean });
+      setTimeout(() => {
+        if (serializeWaiters.current.has(reqId)) {
+          serializeWaiters.current.delete(reqId);
+          resolve(html ?? "");
+        }
+      }, 1500);
+    });
+
   // Backstop for JS-driven navigation (location.href=…, form.submit()): if the
   // preview ever navigates to a real http(s) URL — i.e. the host app — restore
   // the artifact. The in-iframe guard handles anchor/form cases without this
@@ -65,18 +78,7 @@ export const Canvas = forwardRef<CanvasHandle, Props>(function Canvas(
 
   useImperativeHandle(ref, () => ({
     postCmd,
-    serialize: (clean?: boolean) =>
-      new Promise<string>((resolve) => {
-        const reqId = ++reqCounter;
-        serializeWaiters.current.set(reqId, resolve);
-        postCmd({ __vd_cmd: "serialize", reqId, clean: !!clean });
-        setTimeout(() => {
-          if (serializeWaiters.current.has(reqId)) {
-            serializeWaiters.current.delete(reqId);
-            resolve(html ?? "");
-          }
-        }, 1500);
-      }),
+    serialize: requestSerialize,
     getTree: () =>
       new Promise<TreeNode | null>((resolve) => {
         const reqId = ++reqCounter;
@@ -114,13 +116,26 @@ export const Canvas = forwardRef<CanvasHandle, Props>(function Canvas(
         }, 1000);
       }),
     exportPng: async (selector, scale) => {
-      const doc = iframeRef.current?.contentDocument;
-      if (!doc) return null;
-      const target = selector ? (doc.querySelector(selector) as HTMLElement | null) : doc.body;
-      if (!target) return null;
       try {
-        const { domToPng } = await import("modern-screenshot");
-        return await domToPng(target, { scale, backgroundColor: "transparent" });
+        const response = await fetch("/api/render-screenshot", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            html: await requestSerialize(),
+            format: "png",
+            width: iframeRef.current?.clientWidth ?? 1280,
+            scale,
+            selector: selector ?? undefined,
+          }),
+        });
+        if (!response.ok) return null;
+        const blob = await response.blob();
+        const reader = new FileReader();
+        return await new Promise<string | null>((resolve) => {
+          reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : null);
+          reader.onerror = () => resolve(null);
+          reader.readAsDataURL(blob);
+        });
       } catch {
         return null;
       }
@@ -221,7 +236,7 @@ export const Canvas = forwardRef<CanvasHandle, Props>(function Canvas(
             title="artifact"
             srcDoc={srcDoc}
             onLoad={onIframeLoad}
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-pointer-lock"
+            sandbox="allow-scripts allow-forms allow-popups allow-modals allow-pointer-lock"
           />
         </div>
       )}

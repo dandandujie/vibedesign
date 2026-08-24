@@ -44,6 +44,11 @@ function resolveKey(files: Record<string, string>, key: string, entry: string): 
   return null;
 }
 
+export function withPathNotice(body: string, path: string): string {
+  const script = `<script>parent.postMessage({__vdMfPath:${JSON.stringify(path).replace(/</g, "\\u003c")}}, "*")<\/script>`;
+  return body + script;
+}
+
 export interface ServedFile {
   body: string;
   contentType: string;
@@ -59,5 +64,7 @@ export function serveMultiFile(projectId: string, versionId: string, rawPath: st
   const key = resolveKey(version.files, normalizePath(rawPath), entry);
   if (key === null || !(key in version.files)) return null;
 
-  return { body: version.files[key], contentType: contentTypeFor(key) };
+  const contentType = contentTypeFor(key);
+  const body = contentType.startsWith("text/html") ? withPathNotice(version.files[key], key) : version.files[key];
+  return { body, contentType };
 }

@@ -124,7 +124,7 @@ export function VersionManager({ projectId, projectName, artifacts, activeVersio
                         <div className="vm-pages-strip" style={{ transform: `scale(${scale})` }}>
                           {mfPages.map((p) => (
                             <div className="vm-page-card" key={p.path}>
-                              <iframe src={`/api/mf/${projectId}/${selected.id}/${p.path}`} sandbox="allow-scripts allow-same-origin" title={p.title} />
+                              <iframe src={`/api/mf/${projectId}/${selected.id}/${p.path}`} sandbox="allow-scripts" title={p.title} />
                               <span className="vm-page-title">{p.title}</span>
                             </div>
                           ))}
@@ -134,7 +134,7 @@ export function VersionManager({ projectId, projectName, artifacts, activeVersio
                   ) : (
                     <div className="vm-preview-scale" style={{ transform: `scale(${scale})`, width: PREVIEW_W }}>
                       {previewSrc ? (
-                        <iframe className="vm-frame" src={previewSrc} sandbox="allow-scripts allow-same-origin" title="version preview" />
+                        <iframe className="vm-frame" src={previewSrc} sandbox="allow-scripts" title="version preview" />
                       ) : (
                         <iframe className="vm-frame" srcDoc={selected.html} sandbox="allow-scripts" title="version preview" />
                       )}

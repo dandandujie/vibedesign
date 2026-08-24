@@ -1,4 +1,4 @@
-import { chromium } from "playwright";
+import { openValidationBrowser, setIsolatedContent, type ValidationBrowserSession } from "./browserRuntime.js";
 import ffmpegStatic from "ffmpeg-static";
 import { spawn } from "node:child_process";
 import { mkdtemp, writeFile, rm, readFile } from "node:fs/promises";
@@ -69,17 +69,17 @@ export async function renderMotionVideo(
   if (height > MAX_FRAME_HEIGHT || width * height > MAX_FRAME_PIXELS) throw new Error("motion frame dimensions are too large");
 
   let dir: string | undefined;
-  let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
+  let browser: ValidationBrowserSession | undefined;
   const abort = () => void browser?.close().catch(() => {});
   signal?.addEventListener("abort", abort, { once: true });
   try {
     throwIfAborted(signal);
     dir = await mkdtemp(join(tmpdir(), "vd-motion-"));
     throwIfAborted(signal);
-    browser = await chromium.launch({ headless: true, timeout: 15_000 });
+    browser = await openValidationBrowser();
     throwIfAborted(signal);
-    const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1 });
-    await page.setContent(html, { waitUntil: "load", timeout: 20_000 });
+    const page = await browser.newPage({ width, height });
+    await setIsolatedContent(page, html);
     // let fonts/layout settle
     await page.waitForTimeout(200);
 

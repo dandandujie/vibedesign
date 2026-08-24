@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { createServer } from "node:http";
 import { isAbsolute } from "node:path";
@@ -14,8 +15,16 @@ export interface ValidationBrowserSession {
   browser: Browser;
   runtime: "playwright" | "electron";
   newPage(viewport: ViewportSize): Promise<Page>;
+  printToPDF(page: Page, width: number, height: number): Promise<Buffer>;
   closePage(page: Page): Promise<void>;
   close(): Promise<void>;
+}
+
+export async function setIsolatedContent(page: Page, html: string): Promise<void> {
+  await page.context().setOffline(true);
+  const url = await page.evaluate((content) => URL.createObjectURL(new Blob([content], { type: "text/html" })), html);
+  await page.goto(url, { waitUntil: "load", timeout: 20_000 });
+  await page.evaluate((loadedUrl) => URL.revokeObjectURL(loadedUrl), url);
 }
 
 function reserveLocalPort(): Promise<number> {
@@ -32,6 +41,17 @@ function reserveLocalPort(): Promise<number> {
       server.close((error) => error ? reject(error) : resolve(address.port));
     });
   });
+}
+
+async function printElectronPage(endpoint: string, token: string, width: number, height: number): Promise<Buffer> {
+  const response = await fetch(`${endpoint}/print`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+    body: JSON.stringify({ width, height }),
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!response.ok) throw new Error(`Electron PDF render failed: ${await response.text()}`);
+  return Buffer.from(await response.arrayBuffer());
 }
 
 async function connectToElectron(child: ChildProcess, endpoint: string): Promise<Browser> {
@@ -57,6 +77,12 @@ export async function openValidationBrowser(options: ValidationBrowserOptions = 
       browser,
       runtime: "playwright",
       newPage: (viewport) => browser.newPage({ viewport }),
+      printToPDF: (page, width, height) => page.pdf({
+        printBackground: true,
+        width: `${width}px`,
+        height: `${height}px`,
+        pageRanges: "1",
+      }),
       closePage: (page) => page.close(),
       close: () => browser.close(),
     };
@@ -66,10 +92,15 @@ export async function openValidationBrowser(options: ValidationBrowserOptions = 
   }
 
   const port = await reserveLocalPort();
+  const printPort = await reserveLocalPort();
+  const printToken = randomUUID();
+  const printEndpoint = `http://127.0.0.1:${printPort}`;
   const child = spawn(executable, [
     ...(options.electronArguments ?? []),
     "--vd-validation-browser",
     `--remote-debugging-port=${port}`,
+    `--vd-print-port=${printPort}`,
+    `--vd-print-token=${printToken}`,
     "--remote-allow-origins=http://127.0.0.1",
     "--headless",
     "--disable-gpu",
@@ -87,6 +118,10 @@ export async function openValidationBrowser(options: ValidationBrowserOptions = 
         pageInUse = true;
         await page.setViewportSize(viewport);
         return page;
+      },
+      printToPDF: (activePage, width, height) => {
+        if (activePage !== page) throw new Error("unknown Electron validation page");
+        return printElectronPage(printEndpoint, printToken, width, height);
       },
       closePage: async (activePage) => {
         if (activePage !== page) throw new Error("unknown Electron validation page");

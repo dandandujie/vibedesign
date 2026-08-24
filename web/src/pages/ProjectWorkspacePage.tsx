@@ -421,6 +421,7 @@ export function ProjectWorkspacePage({ projectId }: Props) {
               key={`${previewPage.path}-${manifest.updatedAt}`}
               title={`${previewPage.title} 预览`}
               src={projectPreviewUrl(projectId, previewPage.path)}
+              sandbox="allow-scripts allow-forms allow-popups allow-modals allow-pointer-lock"
               style={{
                 width: Math.min(selectedViewport?.width ?? 1440, 1440),
                 maxWidth: "100%",

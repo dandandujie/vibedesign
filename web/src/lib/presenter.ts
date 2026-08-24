@@ -1,14 +1,9 @@
 // Multi-window deck presenter — a control-room window (current + next slide,
 // speaker notes, elapsed timer, slide counter, prev/next) plus an optional
-// audience window (fullscreen current slide). The two stay in sync over a
-// BroadcastChannel. This is open-design's html-ppt "presenter view" adapted onto
-// Vibedesign's self-contained decks: no shared runtime is required — we extract
-// slides + notes from whatever the model emitted, render each slide in isolation
-// (deck <head> styles, letterbox-scaled), and drive them ourselves.
+// audience window (fullscreen current slide). This is open-design's html-ppt
+// "presenter view" adapted onto Vibedesign's self-contained decks.
 
-const CHANNEL = "vd-presenter";
-
-interface DeckModel {
+export interface DeckModel {
   headStyles: string; // deck <head> with <script> stripped (styles/fonts only)
   bodyClass: string;
   slides: string[]; // outerHTML per slide, in order
@@ -72,8 +67,9 @@ export function looksLikeDeck(html: string | null): boolean {
 }
 
 // A DECK-model string is inlined into each window; slideDoc() rebuilds a single
-// slide as a standalone document, letterbox-scaled to the viewport. Shared by
-// both windows so they render identically.
+// slide as a standalone document, letterbox-scaled to the viewport. The iframe
+// that receives it is sandboxed without allow-same-origin, so model/user-authored
+// scripts can animate a slide but cannot reach the presenter shell or app APIs.
 const RUNTIME_JS = /* js */ `
   function slideDoc(k){
     var s = DECK.slides[k] || "";
@@ -103,25 +99,28 @@ function audienceHtml(model: DeckModel): string {
   return `<!doctype html><html><head><meta charset="utf-8"><title>Audience</title>
 <style>html,body{margin:0;height:100%;background:#000}iframe{border:0;width:100vw;height:100vh;display:block}</style>
 </head><body>
-<iframe id="stage"></iframe>
+<iframe id="stage" sandbox="allow-scripts"></iframe>
 <script>
 var DECK = ${jsonInline(model)};
 ${RUNTIME_JS}
 var stage = document.getElementById('stage'), i = 0;
 function show(k){ i = k; stage.srcdoc = slideDoc(i); }
-var bc = new BroadcastChannel('${CHANNEL}');
-bc.onmessage = function(e){ if(e.data && e.data.type==='goto') show(e.data.i|0); };
-bc.postMessage({type:'hello'});
+function send(msg){ if(window.opener && !window.opener.closed) window.opener.postMessage(msg, '*'); }
+addEventListener('message', function(e){
+  if(e.source !== window.opener || !e.data) return;
+  if(e.data.type === 'goto') show(e.data.i|0);
+});
+send({type:'hello'});
 show(0);
 addEventListener('keydown', function(e){
-  if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown') bc.postMessage({type:'nav', d:1});
-  else if(e.key==='ArrowLeft'||e.key==='PageUp') bc.postMessage({type:'nav', d:-1});
+  if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown') send({type:'nav', d:1});
+  else if(e.key==='ArrowLeft'||e.key==='PageUp') send({type:'nav', d:-1});
 });
 </script>
 </body></html>`;
 }
 
-function presenterHtml(model: DeckModel): string {
+export function buildPresenterHtml(model: DeckModel): string {
   return `<!doctype html><html><head><meta charset="utf-8"><title>Presenter · ${model.slides.length} slides</title>
 <style>
   :root{color-scheme:dark}
@@ -146,8 +145,8 @@ function presenterHtml(model: DeckModel): string {
 </style></head>
 <body>
 <div class="wrap">
-  <div class="cur"><span class="tag">当前</span><iframe id="cur"></iframe></div>
-  <div class="nxt"><span class="tag">下一张</span><iframe id="nxt"></iframe></div>
+  <div class="cur"><span class="tag">当前</span><iframe id="cur" sandbox="allow-scripts"></iframe></div>
+  <div class="nxt"><span class="tag">下一张</span><iframe id="nxt" sandbox="allow-scripts"></iframe></div>
   <div class="side">
     <div class="meta"><span class="timer" id="timer">00:00</span><span class="count" id="count">— / —</span></div>
     <div class="notes empty" id="notes">（无备注）</div>
@@ -165,7 +164,7 @@ var DECK = ${jsonInline(model)};
 ${RUNTIME_JS}
 var i = 0, N = DECK.slides.length, t0 = Date.now(), aud = null;
 var cur = document.getElementById('cur'), nxt = document.getElementById('nxt');
-var bc = new BroadcastChannel('${CHANNEL}');
+function syncAudience(){ if(aud && !aud.closed) aud.postMessage({type:'goto', i:i}, '*'); }
 function render(){
   cur.srcdoc = slideDoc(i);
   nxt.srcdoc = (i+1 < N) ? slideDoc(i+1) : '<body style="background:#111"></body>';
@@ -173,7 +172,7 @@ function render(){
   var n = document.getElementById('notes');
   n.textContent = DECK.notes[i] || '（无备注）';
   n.className = 'notes' + (DECK.notes[i] ? '' : ' empty');
-  bc.postMessage({type:'goto', i:i});
+  syncAudience();
 }
 function go(d){ var k = Math.max(0, Math.min(N-1, i+d)); if(k!==i){ i=k; render(); } }
 function goto(k){ k = Math.max(0, Math.min(N-1, k)); if(k!==i){ i=k; render(); } }
@@ -183,14 +182,19 @@ document.getElementById('reset').onclick = function(){ t0 = Date.now(); };
 document.getElementById('aud').onclick = function(){
   var url = URL.createObjectURL(new Blob([AUD_HTML], {type:'text/html'}));
   aud = window.open(url, 'vd-audience', 'width=1280,height=720');
-  setTimeout(render, 300);
+  if(!aud){ URL.revokeObjectURL(url); return; }
+  setTimeout(function(){ URL.revokeObjectURL(url); render(); }, 300);
 };
 addEventListener('keydown', function(e){
   if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown'){ e.preventDefault(); go(1); }
   else if(e.key==='ArrowLeft'||e.key==='PageUp'){ e.preventDefault(); go(-1); }
   else if(e.key==='Home'){ goto(0); } else if(e.key==='End'){ goto(N-1); }
 });
-bc.onmessage = function(e){ if(e.data && e.data.type==='nav') go(e.data.d|0); else if(e.data && e.data.type==='hello') render(); };
+addEventListener('message', function(e){
+  if(e.source !== aud || !e.data) return;
+  if(e.data.type === 'nav') go(e.data.d|0);
+  else if(e.data.type === 'hello') render();
+});
 setInterval(function(){
   var s = Math.floor((Date.now()-t0)/1000);
   var mm = String(Math.floor(s/60)).padStart(2,'0'), ss = String(s%60).padStart(2,'0');
@@ -207,11 +211,26 @@ render();
 export function openPresenter(deckHtml: string): boolean {
   const model = extractDeck(deckHtml);
   if (!model) return false;
-  const url = URL.createObjectURL(new Blob([presenterHtml(model)], { type: "text/html" }));
-  const w = window.open(url, "vd-presenter", "width=1280,height=800");
-  if (!w) {
-    URL.revokeObjectURL(url);
+  const html = buildPresenterHtml(model);
+  const electronBridge = (window as unknown as { vd?: { openPresenter?: (html: string) => void } }).vd;
+  if (electronBridge?.openPresenter) {
+    electronBridge.openPresenter(html);
+    return true;
+  }
+
+  // Browser fallback: open an empty window, sever its opener immediately, then
+  // write only the trusted presenter shell. Authored slide markup remains inside
+  // the opaque sandboxed iframes generated by buildPresenterHtml().
+  const w = window.open("", "vd-presenter", "width=1280,height=800");
+  if (!w) return false;
+  try {
+    w.opener = null;
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+    return true;
+  } catch {
+    w.close();
     return false;
   }
-  return true;
 }

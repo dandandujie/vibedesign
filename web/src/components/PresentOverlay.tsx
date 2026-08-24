@@ -36,7 +36,7 @@ export function PresentOverlay({ html, title, fullscreen, onExit }: Props) {
           ✕
         </button>
       </div>
-      <iframe title="present" srcDoc={html} sandbox="allow-scripts allow-same-origin allow-forms" />
+      <iframe title="present" srcDoc={html} sandbox="allow-scripts allow-forms" />
     </div>
   );
 }

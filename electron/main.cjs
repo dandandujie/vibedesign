@@ -10,6 +10,52 @@ if (process.argv.includes("--vd-validation-browser")) {
     validationWindow = new BrowserWindow({ show: false, webPreferences: { sandbox: true } });
     void validationWindow.loadURL("about:blank");
   });
+  const printPort = Number(process.argv.find((arg) => arg.startsWith("--vd-print-port="))?.split("=")[1]);
+  const printToken = process.argv.find((arg) => arg.startsWith("--vd-print-token="))?.slice("--vd-print-token=".length);
+  if (Number.isInteger(printPort) && printPort > 0 && printToken) {
+    const printServer = require("node:http").createServer((req, res) => {
+      if (req.method !== "POST" || req.url !== "/print" || req.headers.authorization !== `Bearer ${printToken}`) {
+        res.writeHead(403).end("forbidden");
+        return;
+      }
+      let body = "";
+      req.on("data", (chunk) => {
+        body += chunk;
+        if (body.length > 1024) req.destroy();
+      });
+      req.on("end", () => {
+        if (!validationWindow || validationWindow.isDestroyed()) {
+          res.writeHead(503).end("browser unavailable");
+          return;
+        }
+        let width;
+        let height;
+        try {
+          ({ width, height } = JSON.parse(body));
+        } catch {
+          res.writeHead(400).end("invalid request");
+          return;
+        }
+        if (!Number.isFinite(width) || !Number.isFinite(height)) {
+          res.writeHead(400).end("invalid page size");
+          return;
+        }
+        void validationWindow.webContents.printToPDF({
+          printBackground: true,
+          margins: { top: 0, bottom: 0, left: 0, right: 0 },
+          pageSize: {
+            width: Math.max(0.01, Math.min(200, width / 96)),
+            height: Math.max(0.01, Math.min(200, height / 96)),
+          },
+        }).then(
+          (buffer) => res.writeHead(200, { "content-type": "application/pdf" }).end(buffer),
+          (error) => res.writeHead(500).end(String(error)),
+        );
+      });
+    });
+    printServer.listen(printPort, "127.0.0.1");
+    printServer.unref();
+  }
   app.on("window-all-closed", () => app.quit());
 // MCP stdio mode: coding agents spawn the app binary with `--vd-mcp` (see
 // server/src/agentInstall.ts resolveLaunch). Run the bundled MCP server and
@@ -24,6 +70,140 @@ if (app.isPackaged) process.env.VD_ELECTRON_VALIDATION_EXECUTABLE = process.exec
 // Avoid clashing with a dev server on 8787.
 const PORT = process.env.PORT || "8788";
 process.env.PORT = PORT;
+
+const MAX_PRESENTER_HTML_BYTES = 8 * 1024 * 1024;
+const MAX_ARTIFACT_HTML_BYTES = 8 * 1024 * 1024;
+
+function isTrustedAppMainFrame(event) {
+  const frame = event.senderFrame;
+  if (frame && frame !== event.sender.mainFrame) return false;
+  const senderUrl = frame?.url || event.sender.getURL();
+  try {
+    const target = new URL(senderUrl);
+    return target.protocol === "http:" && target.hostname === "127.0.0.1" && target.port === PORT;
+  } catch {
+    return false;
+  }
+}
+
+function createPresenterWindow(html) {
+  const partition = `vd-presenter-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const webPreferences = {
+    contextIsolation: true,
+    nodeIntegration: false,
+    sandbox: true,
+    webSecurity: true,
+    partition,
+  };
+  const win = new BrowserWindow({
+    width: 1280,
+    height: 800,
+    minWidth: 900,
+    minHeight: 600,
+    show: false,
+    title: "Vibedesign Presenter",
+    backgroundColor: "#0c0d10",
+    webPreferences,
+  });
+
+  // The presenter is app-generated, but it renders model/user-authored slide
+  // HTML. Keep it in a separate sandboxed session with no preload bridge.
+  win.webContents.session.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
+  win.webContents.setWindowOpenHandler(({ url, frameName }) => {
+    // Only the trusted presenter shell may open its audience window. Slide
+    // documents are sandboxed without allow-popups, so they cannot reach here.
+    if (frameName === "vd-audience" && url.startsWith("blob:")) {
+      return {
+        action: "allow",
+        overrideBrowserWindowOptions: {
+          width: 1280,
+          height: 720,
+          backgroundColor: "#000000",
+          webPreferences: { ...webPreferences },
+        },
+      };
+    }
+    return { action: "deny" };
+  });
+  win.webContents.on("did-create-window", (child) => {
+    child.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+    child.webContents.on("will-navigate", (event) => event.preventDefault());
+  });
+  // Load a blank document first, then write the trusted presenter shell from
+  // the main process. This avoids large data: URLs while keeping authored slide
+  // markup out of the privileged editor renderer.
+  const source = `document.open();document.write(${JSON.stringify(html)});document.close();`;
+  void win
+    .loadURL("about:blank")
+    .then(async () => {
+      win.webContents.on("will-navigate", (event) => event.preventDefault());
+      await win.webContents.executeJavaScript(source, true);
+      if (!win.isDestroyed()) win.show();
+    })
+    .catch(() => {
+      if (!win.isDestroyed()) win.close();
+    });
+}
+
+function createArtifactWindow(html) {
+  const partition = `vd-artifact-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const win = new BrowserWindow({
+    width: 1280,
+    height: 800,
+    minWidth: 640,
+    minHeight: 480,
+    show: false,
+    title: "Vibedesign Preview",
+    backgroundColor: "#ffffff",
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      webSecurity: true,
+      partition,
+    },
+  });
+
+  // Generic authored HTML gets its own sandboxed renderer and session. It has
+  // no opener, preload bridge, Node access, permissions, downloads, or ability
+  // to create more application windows.
+  win.webContents.session.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
+  win.webContents.session.on("will-download", (event) => event.preventDefault());
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    try {
+      const target = new URL(url);
+      if (target.protocol === "https:" || target.protocol === "mailto:") {
+        void shell.openExternal(target.href).catch(() => {});
+      }
+    } catch {
+      // Ignore malformed or relative popup targets.
+    }
+    return { action: "deny" };
+  });
+  win.webContents.on("will-navigate", (event, url) => {
+    if (url === "about:blank") return;
+    event.preventDefault();
+    try {
+      const target = new URL(url);
+      if (target.protocol === "https:" || target.protocol === "mailto:") {
+        void shell.openExternal(target.href).catch(() => {});
+      }
+    } catch {
+      // Authored relative/script navigation stays blocked.
+    }
+  });
+
+  const source = `document.open();document.write(${JSON.stringify(html)});document.close();`;
+  void win
+    .loadURL("about:blank")
+    .then(async () => {
+      await win.webContents.executeJavaScript(source, true);
+      if (!win.isDestroyed()) win.show();
+    })
+    .catch(() => {
+      if (!win.isDestroyed()) win.close();
+    });
+}
 
 // Boot the bundled Express server (API + static web/dist) in-process.
 require(path.join(__dirname, "..", "server", "dist", "server.cjs"));
@@ -46,21 +226,16 @@ function createWindow(route = "") {
     },
   });
 
-  // External links open in the system browser, not in-app.
+  // Renderer-created content windows are denied. Intentional presenter windows
+  // are created in the main process through vd:open-presenter with an isolated
+  // session and no preload bridge; PDF export uses the headless render API.
   win.webContents.setWindowOpenHandler(({ url }) => {
-    // Popups the app opens itself with self-contained content: presenter /
-    // audience windows (blob: URLs) and the print-to-PDF window
-    // (window.open("") → about:blank). Denying these silently breaks Present
-    // and Share → PDF in the packaged desktop app; they work in the browser.
-    if (url === "" || url === "about:blank" || url.startsWith("blob:")) return { action: "allow" };
     let target;
     try {
       target = new URL(url);
     } catch {
       return { action: "deny" };
     }
-    const internalHost = target.hostname === "localhost" || target.hostname === "127.0.0.1";
-    if (target.protocol === "http:" && internalHost && target.port === PORT) return { action: "allow" };
     if (target.protocol === "https:" || target.protocol === "mailto:") {
       void shell.openExternal(target.href).catch(() => {});
     }
@@ -85,6 +260,20 @@ app.on("window-all-closed", () => {
 ipcMain.on("vd:open-project-window", (_event, projectId) => {
   if (typeof projectId !== "string" || !/^[\w-]+$/.test(projectId)) return;
   createWindow(`/#/p/${projectId}`);
+});
+
+ipcMain.on("vd:open-presenter", (event, html) => {
+  if (!isTrustedAppMainFrame(event)) return;
+  if (typeof html !== "string" || !html.trim()) return;
+  if (Buffer.byteLength(html, "utf8") > MAX_PRESENTER_HTML_BYTES) return;
+  createPresenterWindow(html);
+});
+
+ipcMain.on("vd:open-artifact-window", (event, html) => {
+  if (!isTrustedAppMainFrame(event)) return;
+  if (typeof html !== "string" || !html.trim()) return;
+  if (Buffer.byteLength(html, "utf8") > MAX_ARTIFACT_HTML_BYTES) return;
+  createArtifactWindow(html);
 });
 
 ipcMain.handle("vd:select-directory", async () => {

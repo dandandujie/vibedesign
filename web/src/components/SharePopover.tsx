@@ -145,15 +145,6 @@ export function SharePopover({ artifactHtml, projectName, version, exportPng }: 
     setTimeout(() => setCopied(false), 1500);
   };
 
-  const exportPdf = () => {
-    if (!artifactHtml) return;
-    const w = window.open("", "_blank");
-    if (!w) return;
-    w.document.write(artifactHtml);
-    w.document.close();
-    setTimeout(() => w.print(), 400);
-  };
-
   const exportBundle = () => artifactHtml && exportHandoffZip(artifactHtml, projectName);
 
   // Multi-page site / flow prototype: zip every file as-is plus a site manifest
@@ -184,11 +175,11 @@ export function SharePopover({ artifactHtml, projectName, version, exportPng }: 
           </div>
 
           <span className="sec-label">{t("Export")}</span>
-          <button className="export-item" onClick={exportPdf} disabled={!artifactHtml}>
+          <button className="export-item" onClick={() => exportPixel("pdf")} disabled={!artifactHtml || busy === "pxpdf"}>
             <span className="ic">📄</span>
             <span className="tx">
               <span className="t">PDF</span>
-              <span className="d">{t("Original size")}</span>
+              <span className="d">{busy === "pxpdf" ? "渲染中…（无头 Chromium）" : "Print-perfect PDF (handles CJK)"}</span>
             </span>
             <span className="go">{t("Download")}</span>
           </button>
@@ -350,14 +341,6 @@ export function SharePopover({ artifactHtml, projectName, version, exportPng }: 
             <span className="tx">
               <span className="t">{t("PNG（像素级）")}</span>
               <span className="d">{busy === "pxpng" ? "渲染中…（无头 Chromium）" : "Headless render — real fonts / WebGL"}</span>
-            </span>
-            <span className="go">{t("Download")}</span>
-          </button>
-          <button className="export-item" onClick={() => exportPixel("pdf")} disabled={!artifactHtml || busy === "pxpdf"}>
-            <span className="ic">📄</span>
-            <span className="tx">
-              <span className="t">{t("PDF（像素级）")}</span>
-              <span className="d">{busy === "pxpdf" ? "渲染中…（无头 Chromium）" : "Print-perfect PDF (handles CJK)"}</span>
             </span>
             <span className="go">{t("Download")}</span>
           </button>

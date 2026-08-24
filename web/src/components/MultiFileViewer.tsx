@@ -69,6 +69,7 @@ export function MultiFileViewer({ projectId, version, onEditSite, device = "web"
     onPageChange?.(p);
   };
   const [ready, setReady] = useState(false);
+  const previewRef = useRef<HTMLIFrameElement>(null);
   const [pageMenu, setPageMenu] = useState(false);
   const pageUrl = base + page;
 
@@ -114,20 +115,17 @@ export function MultiFileViewer({ projectId, version, onEditSite, device = "web"
     return () => document.removeEventListener("click", onDoc);
   }, [pageMenu]);
 
-  // Follow in-iframe navigation: clicking a relative link inside the preview
-  // loads another page of the site — reflect that in the page bar.
-  const syncPageFromIframe = (frame: HTMLIFrameElement) => {
-    try {
-      const path = frame.contentWindow?.location.pathname ?? "";
-      const prefix = new URL(base, window.location.origin).pathname;
-      if (path.startsWith(prefix)) {
-        const rel = decodeURIComponent(path.slice(prefix.length));
-        if (rel && files[rel] && rel !== page) setPage(rel);
-      }
-    } catch {
-      /* cross-origin — should not happen (same-origin /api/mf) */
-    }
-  };
+  // The server injects the resolved file path into HTML responses. This keeps
+  // page-tab sync working while the authored frame has an opaque origin.
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.source !== previewRef.current?.contentWindow) return;
+      const path = event.data?.__vdMfPath;
+      if (typeof path === "string" && files[path] && path !== page) setPage(path);
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [files, page]);
 
   // ---- page management -------------------------------------------------------
   const site = version.site;
@@ -309,21 +307,21 @@ export function MultiFileViewer({ projectId, version, onEditSite, device = "web"
               <div className="mf-phone-stage">
                 <PhoneFrame shell={shell}>
                   <iframe
+                    ref={previewRef}
                     className="mf-frame"
                     src={pageUrl}
-                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-pointer-lock"
+                    sandbox="allow-scripts allow-forms allow-popups allow-modals allow-pointer-lock"
                     title="multi-file preview"
-                    onLoad={(e) => syncPageFromIframe(e.currentTarget)}
                   />
                 </PhoneFrame>
               </div>
             ) : (
               <iframe
+                ref={previewRef}
                 className="mf-frame"
                 src={pageUrl}
-                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-pointer-lock"
+                sandbox="allow-scripts allow-forms allow-popups allow-modals allow-pointer-lock"
                 title="multi-file preview"
-                onLoad={(e) => syncPageFromIframe(e.currentTarget)}
               />
             )
           ) : (
@@ -379,10 +377,10 @@ function BoardCell({
           <div style={{ transform: `scale(${scale})`, transformOrigin: "top left", width: dims.w, height: dims.h }}>
             {device !== "web" ? (
               <PhoneFrame shell={shell}>
-                <iframe className="mf-board-live" src={src} sandbox="allow-scripts allow-same-origin" tabIndex={-1} title={title} />
+                <iframe className="mf-board-live" src={src} sandbox="allow-scripts" tabIndex={-1} title={title} />
               </PhoneFrame>
             ) : (
-              <iframe className="mf-cell-frame" src={src} sandbox="allow-scripts allow-same-origin" tabIndex={-1} title={title} />
+              <iframe className="mf-cell-frame" src={src} sandbox="allow-scripts" tabIndex={-1} title={title} />
             )}
           </div>
         </div>
